@@ -197,6 +197,8 @@ var trackTotal = 0;
 var playlistQueue = [];
 var savedQueue = [];
 
+var makingChanges = false;
+
 function refreshTrackData(callback) {
     if (!isExporting && !isImporting) {
         isExporting = true;
@@ -234,7 +236,7 @@ function refreshProgress() {
         var progress = Math.floor(((trackStep / trackTotal) * 100));
     }
     $('#progressBar').css('width', progress+'%')
-    if (typeof collections !== 'undefined') {
+    if (typeof collections !== 'undefined' && !makingChanges) {
         var set = collectionProperties(collections);
         $('#loadingPlaylists').html(""+set.playlistCount+" playlists");
         $('#loadingTracks').html(""+set.trackCount+" tracks");
@@ -358,6 +360,7 @@ function collPlaylistCount(coll) {
 function compareEverything() {
     if (!isImporting && !isExporting) {
         isImporting = true;
+        makingChanges = true;
         resetCounter();
 
         savedQueue = [];
@@ -371,23 +374,23 @@ function compareEverything() {
             // TONOTDO:compare starred -> can not really do that since there is no api to manipulate those
             // instead we just create a replacement-standard-list
             globalStep = "Comparing starred tracks";
-            if (importColl.starred.length > 0) {
-                makeSureImportedStarredExists(function (proceed) {
+            
+            makeSureImportedStarredExists(function (proceed) {
+                if (importColl.starred.length > 0) {
                     compareUriTracks(importColl.starred, collections.starred, addToStarred);
-                });
-            } else {
+                }
+                // compare saved
+                globalStep = "Comparing saved tracks";
+                compareIdTracks(importColl.saved, collections.saved, addToSaved);
                 playlistStep += 1;
-            }
-            // compare saved
-            globalStep = "Comparing saved tracks";
-            compareIdTracks(importColl.saved, collections.saved, addToSaved);
-            playlistStep += 1;
-            // compare other playlists
-            var playlistNames = _.keys(importColl.playlists);
-            globalStep = "Comparing custom playlists";
-            handlePlaylistCompare(playlistNames);
 
-            handleTrackUpload();
+                // compare other playlists
+                var playlistNames = _.keys(importColl.playlists);
+                globalStep = "Comparing custom playlists";
+                handlePlaylistCompare(playlistNames, function () {
+                    handleTrackUpload();
+                });
+            });
         }
     }
 }
@@ -414,9 +417,12 @@ function handleTrackUpload() {
     }
 }
 
-function handlePlaylistCompare(names) {
+function handlePlaylistCompare(names, callback) {
     var name = names.pop();
-    if (!name) return;
+    if (!name) {
+        callback();
+        return;
+    }
     makeSurePlaylistExists(name, function (proceed) {
         if (proceed) {
             var playlistId = collections.playlists[name].id;
@@ -424,7 +430,7 @@ function handlePlaylistCompare(names) {
                 addToPlaylist(playlistId, uri);
             });
         }
-        handlePlaylistCompare(names);
+        handlePlaylistCompare(names, callback);
     });
 }
 

@@ -734,11 +734,16 @@ function handlePlaylistTracks(arr, result, callback) {
 }
 
 window.onload = function() {
-    $('#login').click(login);
-    window.addEventListener("message", authCallback, false);
-    bindControls();
-    refreshProgress();
-} 
+    if (navigator.userAgent.indexOf('MSIE') !== -1 || navigator.appVersion.indexOf('Trident/') > 0) {
+        // MSIE
+        $('#pnlLoggedOut').html('Please use Firefox or Chrome, due to a bug in Internet Explorer');
+    } else {
+        $('#login').click(login);
+        window.addEventListener("message", authCallback, false);
+        bindControls();
+        refreshProgress();
+    }
+}
 
         </script>
     </body>

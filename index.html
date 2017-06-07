@@ -655,7 +655,11 @@ function loadTrackChunks(url, arr, callback) {
             if (!data) return;
             if ('items' in data) {
                 $.each(data.items, function (index, value) {
-                    arr.push({ id: value.track.id, uri: value.track.uri });
+                    if(value.track !== null){
+                        arr.push({ id: value.track.id, uri: value.track.uri });    
+                    }else{
+                        console.log("track is null", value);
+                    }                    
                 });
             } else {
                 arr.push({ id: data.track.id, uri: data.track.uri });

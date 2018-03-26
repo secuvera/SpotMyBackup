@@ -585,7 +585,12 @@ function bindControls() {
         $('#pnlImport').show();
     });
     $('#btnExport').click(function () {
-        var json = JSON.stringify(collections);
+        var reverse = [];
+        var lenght = collections.lenght;
+        for(var i = length-1;i>=0;i--){
+            reverse.push(collections[i]);
+        }
+        var json = JSON.stringify(reverse);
         var d = new Date();
         var time = '@' + d.getFullYear() + '_' + (d.getMonth() + 1) + '_' + d.getDate();
         download(name+time+'.json', json);

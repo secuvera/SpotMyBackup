@@ -387,7 +387,7 @@ function compareEverything() {
                 // compare other playlists
                 var playlistNames = _.keys(importColl.playlists);
                 globalStep = "Comparing custom playlists";
-                handlePlaylistCompare(playlistNames, function () {
+                handlePlaylistCompare(playlistNames.reverse(), function () {
                     handleTrackUpload();
                 });
             });
@@ -405,8 +405,8 @@ function handleTrackUpload() {
     if (trackTotal > 0) {
         $('#progressBar').show();
         globalStep = "Uploading tracks";
-        handleSavedRequests(savedQueue, function () {
-            handlePlaylistRequests(playlistQueue, function () {
+        handleSavedRequests(savedQueue.reverse(), function () {
+            handlePlaylistRequests(playlistQueue.reverse(), function () {
                 globalStep = "Finished uploading";
                 trackTotal = trackStep;
                 isImporting = false;

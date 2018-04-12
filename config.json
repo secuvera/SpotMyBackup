@@ -1,0 +1,7 @@
+config = '[{
+"uri":"http://www.spotmybackup.com/",
+"redirect_uri":"http://www.spotmybackup.com/login.html",
+"client_id":"[YOUR_TOKEN_HERE]",
+"slowdown_import": 100,
+"slowdown_export": 100
+}']

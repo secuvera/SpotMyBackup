@@ -4,6 +4,7 @@
         <meta http-equiv="content-type" content="text/html" charset="UTF-8">
         <title>SpotMyBackup</title>
 
+        <script type="text/javascript" src="data.json"></script>
         <script type="text/javascript" src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.2/underscore-min.js"></script>
         <link href='http://fonts.googleapis.com/css?family=Lato:100,300,400,700,900,100italic,300italic,400italic,700italic,900italic&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
@@ -181,6 +182,9 @@
         </div>
         <script type='text/javascript'>
 
+
+var conf = JSON.parse(config);
+
 var authWindow = null;
 var token = null;
 var userId = '';
@@ -255,8 +259,8 @@ function login() {
     var top = (screen.height / 2) - (height / 2);
 
     var set = {
-      client_id: '[YOUR_CLIENT_TOKEN_HERE]',
-      redirect_uri: 'http://www.spotmybackup.com/login.html',
+      client_id: conf.client_id,
+      redirect_uri: conf.redirect_uri,
       scope: 'playlist-read playlist-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify',
       response_type: 'token',
       show_dialog: 'true'
@@ -269,7 +273,7 @@ function login() {
 }
 
 function authCallback(event){
-    if (event.origin !== "http://www.spotmybackup.com") {
+    if (event.origin !== conf.uri) {
         return;
     }
     if (authWindow) {
@@ -387,7 +391,7 @@ function compareEverything() {
                 // compare other playlists
                 var playlistNames = _.keys(importColl.playlists);
                 globalStep = "Comparing custom playlists";
-                handlePlaylistCompare(playlistNames, function () {
+                handlePlaylistCompare(playlistNames.reverse(), function () {
                     handleTrackUpload();
                 });
             });
@@ -405,8 +409,8 @@ function handleTrackUpload() {
     if (trackTotal > 0) {
         $('#progressBar').show();
         globalStep = "Uploading tracks";
-        handleSavedRequests(savedQueue, function () {
-            handlePlaylistRequests(playlistQueue, function () {
+        handleSavedRequests(savedQueue.reverse(), function () {
+            handlePlaylistRequests(playlistQueue.reverse(), function () {
                 globalStep = "Finished uploading";
                 trackTotal = trackStep;
                 isImporting = false;
@@ -506,6 +510,11 @@ function handleSavedRequests(arr, callback) {
     }
 }
 
+
+function handlePlaylistRequestsWithTimeout(arr, callback) {
+        setTimeout(function() { console.log("Fast runners are dead runners"); handlePlaylistRequests(arr, callback) }, conf.slowdown_import);
+}
+
 function handlePlaylistRequests(arr, callback) {
     var url = arr.pop();
     if (url) {
@@ -528,7 +537,7 @@ function handlePlaylistRequests(arr, callback) {
             }
         })
         .always(function () {
-            handlePlaylistRequests(arr, callback);
+            handlePlaylistRequestsWithTimeout(arr, callback);
         })
     } else {
         callback();
@@ -645,6 +654,10 @@ function loadStarred(url, arr, callback) {
     });
 }
 
+function loadTrackChunksWithTimeout(url, arr, callback, timeout) {
+        setTimeout(function() { console.log("Taking breath, not to fast my cheetah"); loadTrackChunks(url, arr, callback) }, conf.slowdown_export);
+}
+
 function loadTrackChunks(url, arr, callback) {
     $.ajax({
         url: url,
@@ -665,7 +678,7 @@ function loadTrackChunks(url, arr, callback) {
                 arr.push({ id: data.track.id, uri: data.track.uri });
             }
             if (data.next) {
-                loadTrackChunks(data.next, arr, callback);
+                loadTrackChunksWithTimeout(data.next, arr, callback);
             } else {
                 callback();
             }

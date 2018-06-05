@@ -4,4 +4,4 @@ config = '[{
 "client_id":"[YOUR_TOKEN_HERE]",
 "slowdown_import": 100,
 "slowdown_export": 100
-}']
+}]'

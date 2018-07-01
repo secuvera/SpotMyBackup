@@ -4,7 +4,7 @@
         <meta http-equiv="content-type" content="text/html" charset="UTF-8">
         <title>SpotMyBackup</title>
 
-        <script type="text/javascript" src="data.json"></script>
+        <script type="text/javascript" src="config.json"></script>
         <script type="text/javascript" src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.2/underscore-min.js"></script>
         <link href='http://fonts.googleapis.com/css?family=Lato:100,300,400,700,900,100italic,300italic,400italic,700italic,900italic&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
@@ -183,7 +183,7 @@
         <script type='text/javascript'>
 
 
-var conf = JSON.parse(config);
+var conf = config;
 
 var authWindow = null;
 var token = null;
@@ -211,11 +211,11 @@ function refreshTrackData(callback) {
         $('#loadingTitle').html('Please wait. Loading your playlists and tracks ...');
         refreshPlaylist(function () {
             refreshMyMusicTracks(function () {
-                refreshStarredTracks(function () {
+                // refreshStarredTracks(function () {
                     $('#loadingTitle').html('Finished loading, you now might want to export or import.');
                     isExporting = false;
                     callback();
-                });
+                // });
             });
         }); 
     }
@@ -274,6 +274,8 @@ function login() {
 
 function authCallback(event){
     if (event.origin !== conf.uri) {
+        console.log("config.uri missconfigured:");
+        console.log({ uri: conf.uri, origin: origin });
         return;
     }
     if (authWindow) {
@@ -631,28 +633,30 @@ function refreshMyMusicTracks(callback) {
     loadTrackChunks('https://api.spotify.com/v1/me/tracks', collections.saved, callback);
 }
 
-function refreshStarredTracks(callback) {
-    collections.starred = [];
-    playlistStep += 1;
-    loadStarred('https://api.spotify.com/v1/users/' + userId + '/starred', collections.starred, callback)
-}
+// DEPRECATED
+// function refreshStarredTracks(callback) {
+//     collections.starred = [];
+//     playlistStep += 1;
+//     loadStarred('https://api.spotify.com/v1/users/' + userId + '/starred', collections.starred, callback)
+// }
 
-function loadStarred(url, arr, callback) {
-    $.ajax({
-        url: url,
-        headers: {
-            'Authorization': 'Bearer ' + token
-        },
-        success: function(data) {         
-            if (!data) return;
-            if ('tracks' in data) {
-                loadTrackChunks(data.tracks.href, arr, callback);
-            } else {
-                callback();
-            }                
-        }
-    });
-}
+// DEPRECATED
+// function loadStarred(url, arr, callback) {
+//     $.ajax({
+//         url: url,
+//         headers: {
+//             'Authorization': 'Bearer ' + token
+//         },
+//         success: function(data) {         
+//             if (!data) return;
+//             if ('tracks' in data) {
+//                 loadTrackChunks(data.tracks.href, arr, callback);
+//             } else {
+//                 callback();
+//             }                
+//         }
+//     });
+// }
 
 function loadTrackChunksWithTimeout(url, arr, callback, timeout) {
         setTimeout(function() { console.log("Taking breath, not to fast my cheetah"); loadTrackChunks(url, arr, callback) }, conf.slowdown_export);

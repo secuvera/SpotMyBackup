@@ -382,7 +382,7 @@ function compareEverything() {
             globalStep = "Comparing starred tracks";
             
             makeSureImportedStarredExists(function (proceed) {
-                if (importColl.starred.length > 0) {
+                if (importColl.starred && importColl.starred.length > 0) {
                     compareUriTracks(importColl.starred, collections.starred, addToStarred);
                 }
                 // compare saved

@@ -1,0 +1,106 @@
+body {
+  padding: 0;
+  margin: 0;
+  font-family: 'Lato', sans-serif;
+  background: url(./gplaypattern.png) repeat;
+  background-size: 188px 178px;
+}
+
+.container {
+  width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.footer {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+}
+
+.heading {
+  color: #444;
+  font-size: 24px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-bottom: solid 1px #eaeaea;
+  width: 100%;
+  z-index: 500;
+  padding: 12px;
+}
+
+.button-main {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #fff;
+  background-color: #2ebd59;
+  display: inline-block;
+  margin-bottom: 0;
+  text-align: center;
+  vertical-align: middle;
+  cursor: pointer;
+  background-image: none;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  border-radius: 500px;
+  padding: 12px 47px 8px;
+  border-width: 0;
+  letter-spacing: 1.2px;
+  min-width: 130px;
+  text-transform: uppercase;
+  white-space: normal;
+  margin: 0 0 1em;
+}
+.button-big {
+  margin-left: 150px;
+}
+.button-medium {
+  margin-left: 80px;
+}
+
+.title-bold {
+  font-weight: bold;
+  font-size: 44px;
+}
+.title-light {
+  font-weight: 300;
+  color: #555;
+  font-size: 44px;
+}
+.title-medium {
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.progress-bar {
+  width: 0%;
+  background-color: #86e01e;
+  position: relative;
+  height: 16px;
+  border-radius: 4px;
+  -webkit-transition: 0.4s linear;
+  -moz-transition: 0.4s linear;
+  -o-transition: 0.4s linear;
+  transition: 0.4s linear;
+  -webkit-transition-property: width, background-color;
+  -moz-transition-property: width, background-color;
+  -o-transition-property: width, background-color;
+  transition-property: width, background-color;
+  -webkit-box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.25), inset 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.25), inset 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.progress {
+  width: 100%;
+  padding: 4px;
+  margin-top: 10px;
+}
+
+.link {
+  font-size: 14px;
+  padding: 5px 15px;
+  color: #121f59;
+  text-decoration: none;
+}
+.link:hover {
+  color: #a2c852;
+}

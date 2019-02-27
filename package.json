@@ -1,0 +1,23 @@
+{
+  "author": "Florian Keller <github@floriankeller.de>",
+  "dependencies": {
+    "jquery": "3.3.1",
+    "underscore": "1.9.1"
+  },
+  "devDependencies": {
+    "parcel-bundler": "1.11.0",
+    "prettier": "1.16.4"
+  },
+  "license": "GPL-2.0",
+  "main": "dist/index.js",
+  "name": "spotify-backup-server",
+  "repository": "https://github.com/ffflorian/spotify-backup-server.git",
+  "scripts": {
+    "build": "parcel build --public-url ./ src/index.html -d dist",
+    "clean": "rimraf docs .cache",
+    "dist": "yarn clean && yarn build",
+    "prettier": "prettier --single-quote --write src/**/*.{js,json,html}",
+    "start": "parcel src/index.html --open"
+  },
+  "version": "1.0.0"
+}

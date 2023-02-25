@@ -1,8 +1,11 @@
+// @todo add this to stop interval: this.refreshProgressStop();
 // @todo if jquery loaded, {login, callback}.html need it too
 class App {
     constructor() {
         this.configurationFile = 'config.json';
         this.authWindow = null;
+        this.refreshProgressInterval = null;
+        this.refreshProgressInfo = null;
 
         this.settings = {
             uri: "http://localhost:8888",
@@ -199,7 +202,7 @@ class App {
         }
     }
 
-    checkAuthentification(automatic) {
+    async checkAuthentification(automatic) {
         const instance = this;
         return this.getApi('/me').then(response => {
             return {
@@ -230,17 +233,144 @@ class App {
         userId = data.userId;
         conf = this.settings;
 
+        this.bindControls();
+        this.refreshProgressStart();
         refreshTrackData(() => {
             document.getElementById('pnlAction').style.display = 'block';
         });
-        bindControls();
-        refreshProgress();
+    }
+
+    bindControls() {
+        const instance = this;
+
+        document.getElementById('btnExport').addEventListener('click', () => {
+            const d = new Date();
+            const dMonth = d.getMonth() + 1;
+            let filename = instance.settings.filename;
+            filename = filename.replaceAll('%Y', d.getFullYear());
+            filename = filename.replaceAll('%m', ((dMonth < 10) ? '0' : '') + dMonth);
+            filename = filename.replaceAll('%d', ((d.getDate() < 10) ? '0' : '') + d.getDate());
+            filename = filename.replaceAll('%H', ((d.getHours() < 10) ? '0' : '') + d.getHours());
+            filename = filename.replaceAll('%i', ((d.getMinutes() < 10) ? '0' : '') + d.getMinutes());
+            filename = filename.replaceAll('%s', ((d.getSeconds() < 10) ? '0' : '') + d.getSeconds());
+            filename = filename.replaceAll('%u', (userId && userId !== '' ? userId : ''));
+            instance.download(`${filename}.json`, JSON.stringify(collections, null, instance.settings.prettyPrint));
+        });
+
+        document.getElementById('btnImport').addEventListener('click', () => {
+            document.getElementById('pnlAction').style.display = 'none';
+            document.getElementById('pnlImport').style.display = 'block';
+        });
+
+        document.getElementById('fileImport').addEventListener('change', () => {
+            readFile();
+        });
+    }
+
+    download(filename, content) {
+        const pom = document.createElement('a');
+        pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
+        pom.setAttribute('download', filename);
+
+        if (document.createEvent) {
+            const event = document.createEvent('MouseEvents');
+            event.initEvent('click', true, true);
+            pom.dispatchEvent(event);
+        } else {
+            pom.click();
+        }
+    }
+
+    asciiSpinner(key, message) {
+        // https://raw.githubusercontent.com/sindresorhus/cli-spinners/master/spinners.json
+        const spinners = {
+            dots: {
+                interval: 80,
+                frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+            },
+            time: {
+                interval: 100,
+                frames: ["🕐 ", "🕑 ", "🕒 ", "🕓 ", "🕔 ", "🕕 ", "🕖 ", "🕗 ", "🕘 ", "🕙 ", "🕚 ", "🕛 "]
+            }
+        };
+
+        const spinner = spinners[key];
+        if (spinner) {
+            const div = document.createElement('div');
+
+            const el = document.createElement('span');
+            el.style.display = 'inline-block';
+            el.style.width = '1.3em';
+            div.appendChild(el);
+
+            const span = document.createElement('span');
+            span.innerHTML = `${message}`;
+            div.appendChild(span);
+
+            ((spinner, el) => {
+                let i = 0;
+                setInterval(() => {
+                    el.innerHTML = spinner.frames[i];
+                    i = (i + 1) % spinner.frames.length;
+                }, spinner.interval);
+            })(spinner, el);
+
+            return div;
+        }
+        return null;
+    }
+
+    refreshProgressStart() {
+        if (!this.refreshProgressInterval) {
+            this.refreshProgressInterval = setInterval(this.refreshProgress, 1000);
+
+            if (this.settings.development) {
+                this.refreshProgressInfo = this.createAlertMessage('info', '');
+                // this.refreshProgressInfo.appendChild(this.asciiSpinner('dots', 'Running...'));
+                this.refreshProgressInfo.appendChild(this.asciiSpinner('time', 'Running...'));
+                this.logAppend(this.refreshProgressInfo);
+            }
+        }
+    }
+
+    refreshProgressStop() {
+        if (!this.refreshProgressInterval) {
+            clearInterval(this.refreshProgressInterval);
+        }
+        if (this.settings.development && this.refreshProgressInfo) {
+            this.refreshProgressInfo.remove();
+        }
+    }
+
+    refreshProgress() {
+        document.getElementById('globalStep').innerText = globalStep;
+        document.getElementById('playlistStep').innerText = playlistStep;
+        document.getElementById('playlistTotal').innerText = playlistTotal;
+        document.getElementById('trackStep').innerText = trackStep;
+        document.getElementById('trackTotal').innerText = trackTotal;
+
+        let progress = 0;
+        if (trackTotal > 0) {
+            progress = Math.floor(((trackStep / trackTotal) * 100));
+        }
+        document.getElementById('progressBar').style.width = progress + '%';
+
+        if (typeof collections !== 'undefined' && !makingChanges) {
+            const set = collectionProperties(collections);
+            document.getElementById('loadingPlaylists').innerText = `${set.playlistCount} playlists`;
+            document.getElementById('loadingTracks').innerText = `${set.trackCount} tracks`;
+        }
+
+        if (typeof importColl !== 'undefined') {
+            const set2 = collectionProperties(importColl);
+            document.getElementById('filePlaylists').innerText = `${set2.playlistCount} playlists`;
+            document.getElementById('fileTracks').innerText = `${set2.trackCount} tracks`;
+        }
     }
 }
 
 var conf = {};
 
-var token = null;
 var userId = '';
 var collections = {};
 
@@ -290,30 +420,6 @@ function resetCounter() {
     trackTotal = 0;
 }
 
-function refreshProgress() {
-    $('#globalStep').html(globalStep);
-    $('#playlistStep').html(playlistStep);
-    $('#playlistTotal').html(playlistTotal);
-    $('#trackStep').html(trackStep);
-    $('#trackTotal').html(trackTotal);
-    var progress = 0;
-    if (trackTotal > 0) {
-        var progress = Math.floor(((trackStep / trackTotal) * 100));
-    }
-    $('#progressBar').css('width', progress+'%')
-    if (typeof collections !== 'undefined' && !makingChanges) {
-        var set = collectionProperties(collections);
-        $('#loadingPlaylists').html(""+set.playlistCount+" playlists");
-        $('#loadingTracks').html(""+set.trackCount+" tracks");
-    }
-    if (typeof importColl !== 'undefined') {
-        var set2 = collectionProperties(importColl);
-        $('#filePlaylists').html(""+set2.playlistCount+" playlists");
-        $('#fileTracks').html(""+set2.trackCount+" tracks");
-    }
-    setTimeout(refreshProgress, 1000);
-}
-
 function urlEncodeSet(set) {
     var comps = [];
     for (var i in set) {
@@ -323,20 +429,6 @@ function urlEncodeSet(set) {
     }
     var string = comps.join("&");
     return string;
-}
-
-function download(filename, text) {
-    var pom = document.createElement('a');
-    pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-    pom.setAttribute('download', filename);
-
-    if (document.createEvent) {
-        var event = document.createEvent('MouseEvents');
-        event.initEvent('click', true, true);
-        pom.dispatchEvent(event);
-    } else {
-        pom.click();
-    }
 }
 
 function readFile(evt) {
@@ -616,26 +708,6 @@ function compareIdTracks(imported, stored, addCallback) {
             addCallback(value.id);
         }
     });
-}
-
-function bindControls() {
-    $('#btnImport').click(function () {
-        $('#pnlAction').hide();
-        $('#pnlImport').show();
-    });
-    $('#btnExport').click(function () {
-        const d = new Date();
-        let filename = conf.filename;
-        filename = filename.replaceAll('%Y', d.getUTCFullYear());
-        filename = filename.replaceAll('%m', d.getUTCMonth() + 1);
-        filename = filename.replaceAll('%d', d.getUTCDate());
-        filename = filename.replaceAll('%H', ((d.getHours() < 10) ? '0' : '') + d.getHours());
-        filename = filename.replaceAll('%i', ((d.getMinutes() < 10) ? '0' : '') + d.getMinutes());
-        filename = filename.replaceAll('%s', ((d.getSeconds() < 10) ? '0' : '') + d.getSeconds());
-        filename = filename.replaceAll('%u', (userId && userId !== '' ? '_' + userId : ''));
-        download(`${filename}.json`, JSON.stringify(collections, null, conf.prettyPrint));
-    });
-    $('#fileImport').change(readFile);
 }
 
 function refreshMyMusicTracks(callback) {

@@ -8,7 +8,7 @@
     "slowdown_export": 100,
 
     "development": false,
-    "printPlaylists": true,
+    "printPlaylists": false,
     "prettyPrint": 0,
     "excludeSaved": false,
     "excludePlaylists": []

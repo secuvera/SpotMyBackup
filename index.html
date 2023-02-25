@@ -1,77 +1,75 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta http-equiv="content-type" content="text/html" charset="UTF-8">
-        <title>SpotMyBackup</title>
+<html><head>
+    <meta http-equiv="content-type" content="text/html" charset="UTF-8">
+    <title>SpotMyBackup</title>
 
-        <link href="app.css" rel="stylesheet" type="text/css">
-        <script type="text/javascript" src="config.json"></script>
-        <script type="text/javascript" src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.2/underscore-min.js"></script>
-        <link href='http://fonts.googleapis.com/css?family=Lato:100,300,400,700,900,100italic,300italic,400italic,700italic,900italic&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
-    </head>
-    <body>
-        <a href="https://github.com/secuvera/SpotMyBackup/"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/121cd7cbdc3e4855075ea8b558508b91ac463ac2/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f677265656e5f3030373230302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_green_007200.png"></a>
+    <link href="app.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript" src="config.json"></script>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.2/underscore-min.js"></script>
+    <link href='http://fonts.googleapis.com/css?family=Lato:100,300,400,700,900,100italic,300italic,400italic,700italic,900italic&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
+</head>
+<body>
+    <a href="https://github.com/secuvera/SpotMyBackup/"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/121cd7cbdc3e4855075ea8b558508b91ac463ac2/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f677265656e5f3030373230302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_green_007200.png"></a>
 
-        <div class="container">
-            <div class="heading">
-                <span class="title-bold">Spot</span><span class="title-light">My</span><span class="title-bold">Backup</span>
+    <div class="container">
+        <div class="heading">
+            <span class="title-bold">Spot</span><span class="title-light">My</span><span class="title-bold">Backup</span>
+            <br/>
+            <br/>
+            <div id="pnlLoggedOut">
+                <span><b>Export</b> your playlists and tracks setup into a file by a single click. <b>Import</b> the file to restore your setup at any time.</span>
                 <br/>
                 <br/>
-                <div id="pnlLoggedOut">
-                    <span><b>Export</b> your playlists and tracks setup into a file by a single click. <b>Import</b> the file to restore your setup at any time.</span>
-                    <br/>
-                    <br/>
-                    <button id="login" class="button-main button-big">Login with Spotify</button>
-                </div>
-            </div>
-            <div id="pnlLoadingAccount" style="font-size: 16px; display: none;" class="heading">
-                <div class="title-medium">Account: <span id="userName"></span></div>
-                <br/>
-                <div id="loadingPlaylists"></div>
-                <div id="loadingTracks"></div>
-                <br/>
-                <div id="loadingTitle"></div>
-            </div>
-            <div id="pnlAction" style="overflow: hidden; display: none;">
-                <br/>
-                <div style="width: 50%; float: left;">
-                    <button id="btnExport" class="button-main button-medium">Export</button>
-                </div>
-                <div style="width: 50%; float: left;">
-                    <button id="btnImport" class="button-main button-medium">Import</button>
-                </div>
-            </div>
-            <div id="pnlImport" style="font-size: 16px; overflow: hidden; display: none;" class="heading">
-                <div id="pnlFile" style="">
-                    <div style="float: left;">Select a previously exported file</div>
-                    <input style="float: left; margin-left: 10px;" type="file" id="fileImport" />
-                </div>
-                <div id="pnlFileInfo" style="display: none;">
-                    <div class="title-medium">File: <span id="fileName"></span></div>
-                    <br/>
-                    <div id="filePlaylists"></div>
-                    <div id="fileTracks"></div>
-                </div>
-            </div>
-            <div id="pnlUpload" style="font-size: 16px; overflow: hidden; display: none;" class="heading">
-                <div class="title-medium">Importing new playlists and tracks</div>
-                <br/>
-                <div><span>Processed playlists: </span><span id="playlistStep"></span>/<span id="playlistTotal"></span></div>
-                <div><span>Processed tracks: </span><span id="trackStep"></span>/<span id="trackTotal"></span></div>
-                <br/>
-                <div id="globalStep"></div>
-                <div class="progress">
-                    <div id="progressBar" class="progress-bar" style="display: none;"></div>
-                </div>
+                <button id="login" class="button-main button-big">Login with Spotify</button>
             </div>
         </div>
-        <div class="footer">
-            <div class="container" style="background-color: rgba(255,255,255,0.9); border-bottom: solid 1px #eaeaea; overflow: hidden;">
-                <a href="https://github.com/secuvera/SpotMyBackup/wiki" style="float: left;" class="link">Wiki</a>
-                <a href="https://www.secuvera.de/unternehmen/impressum/" style="float: right;" class="link">Impress</a>
+        <div id="pnlLoadingAccount" style="font-size: 16px; display: none;" class="heading">
+            <div class="title-medium">Account: <span id="userName"></span></div>
+            <br/>
+            <div id="loadingPlaylists"></div>
+            <div id="loadingTracks"></div>
+            <br/>
+            <div id="loadingTitle"></div>
+        </div>
+        <div id="pnlAction" style="overflow: hidden; display: none;">
+            <br/>
+            <div style="width: 50%; float: left;">
+                <button id="btnExport" class="button-main button-medium">Export</button>
+            </div>
+            <div style="width: 50%; float: left;">
+                <button id="btnImport" class="button-main button-medium">Import</button>
             </div>
         </div>
-        <script type="text/javascript" src="app.js"></script>
-    </body>
-</html>
+        <div id="pnlImport" style="font-size: 16px; overflow: hidden; display: none;" class="heading">
+            <div id="pnlFile" style="">
+                <div style="float: left;">Select a previously exported file</div>
+                <input style="float: left; margin-left: 10px;" type="file" id="fileImport" />
+            </div>
+            <div id="pnlFileInfo" style="display: none;">
+                <div class="title-medium">File: <span id="fileName"></span></div>
+                <br/>
+                <div id="filePlaylists"></div>
+                <div id="fileTracks"></div>
+            </div>
+        </div>
+        <div id="pnlUpload" style="font-size: 16px; overflow: hidden; display: none;" class="heading">
+            <div class="title-medium">Importing new playlists and tracks</div>
+            <br/>
+            <div><span>Processed playlists: </span><span id="playlistStep"></span>/<span id="playlistTotal"></span></div>
+            <div><span>Processed tracks: </span><span id="trackStep"></span>/<span id="trackTotal"></span></div>
+            <br/>
+            <div id="globalStep"></div>
+            <div class="progress">
+                <div id="progressBar" class="progress-bar" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+    <div class="footer">
+        <div class="container" style="background-color: rgba(255,255,255,0.9); border-bottom: solid 1px #eaeaea; overflow: hidden;">
+            <a href="https://github.com/secuvera/SpotMyBackup/wiki" style="float: left;" class="link">Wiki</a>
+            <a href="https://www.secuvera.de/unternehmen/impressum/" style="float: right;" class="link">Impress</a>
+        </div>
+    </div>
+    <script type="text/javascript" src="app.js"></script>
+</body></html>

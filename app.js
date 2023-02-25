@@ -6,7 +6,8 @@ class App {
             redirect_uri: "http://localhost:8888/login.html",
             client_id: "",
             slowdown_import: 100,
-            slowdown_export: 100
+            slowdown_export: 100,
+            prettyPrint: 0 // Json pretty-printing spacing level
         };
     }
 
@@ -68,6 +69,7 @@ class App {
     async loadConfiguration() {
         let instance = this;
         return await this.getJson('config.json').then(data => {
+            data.prettyPrint = parseInt(data.prettyPrint, 10);
             instance.settings = {...this.settings, ...data}
             return true;
         }).catch(error => {
@@ -521,7 +523,7 @@ function bindControls() {
         $('#pnlImport').show();
     });
     $('#btnExport').click(function () {
-        var json = JSON.stringify(collections);
+        var json = JSON.stringify(collections, null, conf.prettyPrint);
         var d = new Date();
         var time = '@' + d.getFullYear() + '_' + (d.getMonth() + 1) + '_' + d.getDate();
         download(name+time+'.json', json);

@@ -1,6 +1,8 @@
 // @todo if jquery loaded, {login, callback}.html need it too
 class App {
     constructor() {
+        this.authWindow = null;
+
         this.settings = {
             uri: "http://localhost:8888",
             redirect_uri: "http://localhost:8888/login.html",
@@ -12,6 +14,7 @@ class App {
     }
 
     async initialize() {
+        const instance = this;
         if (this.isMicrosoftInternetExplorer()) {
             return; // Note: Error handling in index.html
         }
@@ -25,12 +28,35 @@ class App {
             return;
         }
 
-        // @todo remove when finished
-        conf = this.settings;
-        $('#login').click(login);
-        window.addEventListener("message", authCallback, false);
-        bindControls();
-        refreshProgress();
+        // Try automatically connect with last access token
+        let authentificatedData = false;
+        if (sessionStorage.getItem('accessToken')) {
+            authentificatedData = await this.checkAuthentification(true);
+            if (authentificatedData) {
+                this.showMenu(authentificatedData);
+            }
+        }
+
+        // If fail let the user connect by self
+        if (!authentificatedData) {
+            const loginBtn = document.getElementById('login');
+            loginBtn.style.display = 'block';
+            if (loginBtn) {
+                loginBtn.addEventListener('click', (event) => {
+                    instance.spotifyAuthorize(event);
+                });
+                window.addEventListener('message', (event) => {
+                    instance.spotifyAuthorizeCallback(event);
+                }, false);
+            }
+        }
+    }
+
+    logAppend(element) {
+        const log = document.getElementById('log');
+        if (log) {
+            log.append(element);
+        }
     }
 
     createAlertMessage(type, message) {
@@ -67,7 +93,7 @@ class App {
     }
 
     async loadConfiguration() {
-        let instance = this;
+        const instance = this;
         return await this.getJson('config.json').then(data => {
             data.prettyPrint = parseInt(data.prettyPrint, 10);
             instance.settings = {...this.settings, ...data}
@@ -105,15 +131,112 @@ class App {
             return Promise.reject(error);
         });
     }
+
+    async getApi(path) {
+        return fetch('https://api.spotify.com/v1' + path, {
+            method: 'GET',
+            cache: 'no-cache',
+            headers: {
+                'Accept': 'application/json',
+                'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
+            }
+        }).then(response => {
+            if (response.status === 200) {
+                return response.json();
+            } else {
+                console.error('Response: ', response);
+                return Promise.reject('Response error');
+            }
+        }).then(data => {
+            return data;
+        }).catch(error => {
+            console.error('Error: ', error);
+            return Promise.reject(error);
+        });
+    }
+
+    spotifyAuthorize() {
+        const width = 480;
+        const height = 640;
+        const left = (screen.width / 2) - (width / 2);
+        const top = (screen.height / 2) - (height / 2);
+
+        const set = {
+          client_id: this.settings.client_id,
+          redirect_uri: this.settings.redirect_uri,
+          scope: 'playlist-read playlist-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify',
+          response_type: 'token',
+          show_dialog: 'true'
+        };
+        this.authWindow = window.open(
+            'https://accounts.spotify.com/authorize?' + urlEncodeSet(set),
+            'Spotify',
+            'menubar=no,location=no,resizable=no,scrollbars=no,status=no, width=' + width + ', height=' + height + ', top=' + top + ', left=' + left
+        );
+    }
+
+    async spotifyAuthorizeCallback(event) {
+        if (event.origin !== this.settings.uri) {
+            console.error('"uri" missconfigured', {uri: this.settings.uri, origin: origin});
+            return;
+        }
+        if (this.authWindow) {
+            this.authWindow.close();
+        }
+
+        sessionStorage.setItem('accessToken', event.data);
+        const authentificatedData = await this.checkAuthentification(false);
+        if (authentificatedData) {
+            this.showMenu(authentificatedData);
+        }
+    }
+
+    checkAuthentification(automatic) {
+        const instance = this;
+        return this.getApi('/me').then(response => {
+            return {
+                userId: response.id.toLowerCase(),
+                userName: response.display_name ?? response.id,
+                images: response.images
+            };
+        }).catch(error => {
+            if (!automatic) {
+                instance.logAppend(instance.createAlertMessage('danger',
+                    '<b>Error:</b> Authentification with Spotify failed! Reload page and try again!'
+                ));
+            }
+
+            sessionStorage.removeItem('accessToken');
+            console.error('Error: ', error);
+            return null;
+        });
+    }
+
+    showMenu(data) {
+        document.getElementById('pnlLoggedOut').style.display = 'none';
+
+        const userAvatar = (data.images[0]?.url ? '<img src="' + data.images[0]?.url + '" style="max-height: 32px; vertical-align: middle;"> ' : '');
+        document.getElementById('userName').innerHTML = `${userAvatar}<span>${data.userName}</span>`;
+
+        // @todo remove when finished
+        userId = data.userId;
+        name = data.userId;
+        conf = this.settings;
+
+        refreshTrackData(() => {
+            document.getElementById('pnlAction').style.display = 'block';
+        });
+        bindControls();
+        refreshProgress();
+    }
 }
 
 var conf = {};
 
-var authWindow = null;
 var token = null;
 var userId = '';
 var collections = {};
-var name = 'spotify';
+var name = 'spotify'; // @todo bindControls
 
 var isImporting = false;
 var isExporting = false;
@@ -136,12 +259,13 @@ function refreshTrackData(callback) {
     if (!isExporting && !isImporting) {
         isExporting = true;
         resetCounter();
-        $('#pnlLoadingAccount').show();
-        $('#loadingTitle').html('Please wait. Loading your playlists and tracks ...');
-        refreshPlaylist(function () {
-            refreshMyMusicTracks(function () {
-                // refreshStarredTracks(function () {
-                    $('#loadingTitle').html('Finished loading, you now might want to export or import.');
+        document.getElementById('pnlLoadingAccount').style.display = 'block';
+        const loadingTitle = document.getElementById('loadingTitle');
+        loadingTitle.innerHTML = 'Please wait. Loading your playlists and tracks ...';
+        refreshPlaylist(() => {
+            refreshMyMusicTracks(() => {
+                // refreshStarredTracks(() => {
+                    loadingTitle.innerHTML = 'Finished loading, you now might want to export or import.';
                     isExporting = false;
                     callback();
                 // });
@@ -180,37 +304,6 @@ function refreshProgress() {
         $('#fileTracks').html(""+set2.trackCount+" tracks");
     }
     setTimeout(refreshProgress, 1000);
-}
-
-function login() {
-    var width = 480, height = 640;
-    var left = (screen.width / 2) - (width / 2);
-    var top = (screen.height / 2) - (height / 2);
-
-    var set = {
-      client_id: conf.client_id,
-      redirect_uri: conf.redirect_uri,
-      scope: 'playlist-read playlist-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify',
-      response_type: 'token',
-      show_dialog: 'true'
-    };
-    authWindow = window.open(
-        "https://accounts.spotify.com/authorize?" + urlEncodeSet(set),
-        "Spotify",
-        'menubar=no,location=no,resizable=no,scrollbars=no,status=no, width=' + width + ', height=' + height + ', top=' + top + ', left=' + left
-    );
-}
-
-function authCallback(event){
-    if (event.origin !== conf.uri) {
-        console.log("config.uri missconfigured:");
-        console.log({ uri: conf.uri, origin: origin });
-        return;
-    }
-    if (authWindow) {
-        authWindow.close();
-    }
-    handleAuth(event.data);
 }
 
 function urlEncodeSet(set) {
@@ -382,7 +475,7 @@ function makeSurePlaylistExists(name, callback) {
         data: JSON.stringify(set),
         contentType: 'application/json',
         headers: {
-        'Authorization': 'Bearer ' + token
+        'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
         },
         success: function(response) {
             // alert(JSON.stringify(response));
@@ -421,7 +514,7 @@ function handleSavedRequests(arr, callback) {
             method: "PUT",
             url: url,
             headers: {
-            'Authorization': 'Bearer ' + token
+            'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
             },
             success: function () {
             },
@@ -453,7 +546,7 @@ function handlePlaylistRequests(arr, callback) {
             url: url,
             contentType: 'application/json',
             headers: {
-            'Authorization': 'Bearer ' + token
+            'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
             },
             success: function(response) {
                 // collections.playlists[response.name] = {
@@ -531,29 +624,6 @@ function bindControls() {
     $('#fileImport').change(readFile);
 }
 
-function handleAuth(accessToken) {
-    token = accessToken;
-    // fetch my public playlists
-    $.ajax({
-        url: 'https://api.spotify.com/v1/me',
-        headers: {
-        'Authorization': 'Bearer ' + accessToken
-        },
-        success: function(response) {
-            var user_id = response.id.toLowerCase();
-            userId = user_id;
-            name = user_id;
-
-            $('#userName').html(name);
-            $('#pnlLoggedOut').hide();
-
-            refreshTrackData(function () {
-                $('#pnlAction').show();
-            });
-        }
-    });
-}
-
 function refreshMyMusicTracks(callback) {
     collections.saved = [];
     playlistStep += 1;
@@ -572,7 +642,7 @@ function refreshMyMusicTracks(callback) {
 //     $.ajax({
 //         url: url,
 //         headers: {
-//             'Authorization': 'Bearer ' + token
+//             'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
 //         },
 //         success: function(data) {
 //             if (!data) return;
@@ -596,7 +666,7 @@ function loadTrackChunks(url, arr, callback) {
     $.ajax({
         url: url,
         headers: {
-            'Authorization': 'Bearer ' + token
+            'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
         },
         success: function (data) {
             if (!data) return;
@@ -632,7 +702,7 @@ function loadPlaylistChunks(url, arr, callback) {
     $.ajax({
         url: url,
         headers: {
-            'Authorization': 'Bearer ' + token
+            'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
         },
         success: function (data) {
             if (!data) return;

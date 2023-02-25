@@ -6,7 +6,6 @@
     <link href="app.css" rel="stylesheet" type="text/css">
     <link href="http://fonts.googleapis.com/css?family=Lato:100,300,400,700,900,100italic,300italic,400italic,700italic,900italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
 
-    <script type="text/javascript" src="config.json"></script>
     <script type="text/javascript" src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.2/underscore-min.js"></script>
 </head>
@@ -72,5 +71,21 @@
             <a href="https://www.secuvera.de/unternehmen/impressum/" style="float: right;" class="link">Impress</a>
         </div>
     </div>
+
+    <script type="text/javascript">
+    /**
+     * Internet Explorer ended support on June 15, 2022.
+     * Rest in peace. ...and don't respawn. Oh no, the Edge opens!
+     *
+     * Tested with: Windows 21H1 Build 19043.928
+     * User Agent:  Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E)
+     * App Version: 4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E)
+     */
+    (function() {
+        if (navigator.userAgent.indexOf('MSIE') >= 0 || navigator.appVersion.indexOf('Trident/') >= 0) {
+            document.getElementById('pnlLoggedOut').innerHTML = 'Please use Firefox or Chrome, due to a bug in Internet Explorer';
+        }
+    })();
+    </script>
     <script type="text/javascript" src="app.js"></script>
 </body></html>

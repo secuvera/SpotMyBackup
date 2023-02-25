@@ -1,4 +1,111 @@
-var conf = config;
+// @todo if jquery loaded, {login, callback}.html need it too
+class App {
+    constructor() {
+        this.settings = {
+            uri: "http://localhost:8888",
+            redirect_uri: "http://localhost:8888/login.html",
+            client_id: "",
+            slowdown_import: 100,
+            slowdown_export: 100
+        };
+    }
+
+    async initialize() {
+        if (this.isMicrosoftInternetExplorer()) {
+            return; // Note: Error handling in index.html
+        }
+
+        if (!this.isServer()) {
+            return;
+        }
+
+        const isLoaded = await this.loadConfiguration();
+        if (!isLoaded) {
+            return;
+        }
+
+        // @todo remove when finished
+        conf = this.settings;
+        $('#login').click(login);
+        window.addEventListener("message", authCallback, false);
+        bindControls();
+        refreshProgress();
+    }
+
+    createAlertMessage(type, message) {
+        const div = document.createElement('div');
+        div.classList.add('alert', `alert-${type}`);
+        div.innerHTML = message;
+        return div;
+    }
+
+    isMicrosoftInternetExplorer() {
+        return (navigator.userAgent.indexOf('MSIE') >= 0 || navigator.appVersion.indexOf('Trident/') >= 0);
+    }
+
+    // Check if someone opens it the file with 'file://'
+    isServer() {
+        if (location.protocol.startsWith('http')) {
+            return true;
+        }
+
+        const pnlLoggedOut = document.getElementById('pnlLoggedOut');
+        if (pnlLoggedOut) {
+            const example = (title, code) => {return `<p><b>${title}:</b><br>${code}</p>`};
+            pnlLoggedOut.innerHTML = '';
+            // @todo Should be not in heading
+            pnlLoggedOut.parentNode.append(
+                this.createAlertMessage('danger',
+                    '<b>Sorry, you must use a server!</b>' +
+                    example('Python3 example', 'python3 -m http.server -b 127.0.0.1 8888') +
+                    example('Python2 example', 'python -m SimpleHTTPServer -b 127.0.0.1 8888')
+                )
+            );
+        }
+        return false;
+    }
+
+    async loadConfiguration() {
+        let instance = this;
+        return await this.getJson('config.json').then(data => {
+            instance.settings = {...this.settings, ...data}
+            return true;
+        }).catch(error => {
+            const message = instance.createAlertMessage('warning','<b>Warning:</b> Configuration file not loaded!<br>' + error);
+            const pnlLoggedOut = document.getElementById('pnlLoggedOut');
+            if (pnlLoggedOut) {
+                pnlLoggedOut.parentNode.insertBefore(message, pnlLoggedOut);
+            } else {
+                document.getElementById('body').parentNode.append(message);
+            }
+            return false;
+        });
+    }
+
+    async getJson(url) {
+        return fetch(url, {
+            method: 'GET',
+            cache: 'no-cache',
+            headers: {
+                'Accept': 'application/json'
+            }
+        }).then(response => {
+            if (response.status === 200) {
+                return response.json();
+            } else {
+                console.error('Response: ', response);
+                return Promise.reject('Response error');
+            }
+        }).then(data => {
+            return data;
+        }).catch(error => {
+            console.error('Error: ', error);
+            return Promise.reject(error);
+        });
+    }
+}
+
+var conf = {};
 
 var authWindow = null;
 var token = null;
@@ -17,6 +124,11 @@ var playlistQueue = [];
 var savedQueue = [];
 
 var makingChanges = false;
+
+(function() {
+    const app = new App();
+    app.initialize();
+})();
 
 function refreshTrackData(callback) {
     if (!isExporting && !isImporting) {
@@ -568,16 +680,4 @@ function handlePlaylistTracks(arr, result, callback) {
             handlePlaylistTracks(arr, result, callback);
         }
     });
-}
-
-window.onload = function() {
-    if (navigator.userAgent.indexOf('MSIE') !== -1 || navigator.appVersion.indexOf('Trident/') > 0) {
-        // MSIE
-        $('#pnlLoggedOut').html('Please use Firefox or Chrome, due to a bug in Internet Explorer');
-    } else {
-        $('#login').click(login);
-        window.addEventListener("message", authCallback, false);
-        bindControls();
-        refreshProgress();
-    }
 }

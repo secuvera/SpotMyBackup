@@ -115,6 +115,11 @@ body {
     /* @todo remove if fixed: pnlLoggedOut.parentNode.append */
     font-size: initial;
 }
+.alert-info {
+    color: #0c5460;
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+}
 .alert-warning {
     color: #856404;
     background-color: #fff3cd;

@@ -1,15 +1,23 @@
 // @todo if jquery loaded, {login, callback}.html need it too
 class App {
     constructor() {
+        this.configurationFile = 'config.json';
         this.authWindow = null;
 
         this.settings = {
             uri: "http://localhost:8888",
             redirect_uri: "http://localhost:8888/login.html",
             client_id: "",
+
+            filename: "spotify_%u_%Y-%m-%d_%H-%i-%s",
             slowdown_import: 100,
             slowdown_export: 100,
-            prettyPrint: 0 // Json pretty-printing spacing level
+
+            development: false,
+            printPlaylists: false,
+            prettyPrint: 0, // Json pretty-printing spacing level
+            excludeSaved: false,
+            excludePlaylists: []
         };
     }
 
@@ -94,7 +102,7 @@ class App {
 
     async loadConfiguration() {
         const instance = this;
-        return await this.getJson('config.json').then(data => {
+        return await this.getJson(this.configurationFile).then(data => {
             data.prettyPrint = parseInt(data.prettyPrint, 10);
             instance.settings = {...this.settings, ...data}
             return true;
@@ -220,7 +228,6 @@ class App {
 
         // @todo remove when finished
         userId = data.userId;
-        name = data.userId;
         conf = this.settings;
 
         refreshTrackData(() => {
@@ -236,7 +243,6 @@ var conf = {};
 var token = null;
 var userId = '';
 var collections = {};
-var name = 'spotify'; // @todo bindControls
 
 var isImporting = false;
 var isExporting = false;
@@ -250,9 +256,11 @@ var savedQueue = [];
 
 var makingChanges = false;
 
+let instance2 = this; // @todo Development, remove after finished
 (function() {
     const app = new App();
     app.initialize();
+    instance2 = app; // @todo Development, remove after finished
 })();
 
 function refreshTrackData(callback) {
@@ -616,10 +624,16 @@ function bindControls() {
         $('#pnlImport').show();
     });
     $('#btnExport').click(function () {
-        var json = JSON.stringify(collections, null, conf.prettyPrint);
-        var d = new Date();
-        var time = '@' + d.getFullYear() + '_' + (d.getMonth() + 1) + '_' + d.getDate();
-        download(name+time+'.json', json);
+        const d = new Date();
+        let filename = conf.filename;
+        filename = filename.replaceAll('%Y', d.getUTCFullYear());
+        filename = filename.replaceAll('%m', d.getUTCMonth() + 1);
+        filename = filename.replaceAll('%d', d.getUTCDate());
+        filename = filename.replaceAll('%H', ((d.getHours() < 10) ? '0' : '') + d.getHours());
+        filename = filename.replaceAll('%i', ((d.getMinutes() < 10) ? '0' : '') + d.getMinutes());
+        filename = filename.replaceAll('%s', ((d.getSeconds() < 10) ? '0' : '') + d.getSeconds());
+        filename = filename.replaceAll('%u', (userId && userId !== '' ? '_' + userId : ''));
+        download(`${filename}.json`, JSON.stringify(collections, null, conf.prettyPrint));
     });
     $('#fileImport').change(readFile);
 }
@@ -627,7 +641,12 @@ function bindControls() {
 function refreshMyMusicTracks(callback) {
     collections.saved = [];
     playlistStep += 1;
-    loadTrackChunks('https://api.spotify.com/v1/me/tracks', collections.saved, callback);
+
+    if (conf.excludeSaved) {
+        callback();
+    } else {
+        loadTrackChunks('https://api.spotify.com/v1/me/tracks', collections.saved, callback);
+    }
 }
 
 // DEPRECATED
@@ -694,6 +713,25 @@ function refreshPlaylist(callback) {
     collections.playlists = {};
     var playlists = [];
     loadPlaylistChunks('https://api.spotify.com/v1/users/' + userId + '/playlists', playlists, function () {
+        if (conf.printPlaylists) {
+            let logData = [];
+            playlists.forEach(playlist => {
+                logData.push(`${playlist.name} (${playlist.id})`);
+            });
+            instance2.logAppend(instance2.createAlertMessage('info',
+                '<b>Playlists:</b>' +
+                '<ul><li>' + logData.join('</li><li>') + '</li></ul>'
+            ));
+        }
+
+        playlistsFiltered = [];
+        playlists.forEach(playlist => {
+            if (!conf.excludePlaylists.includes(playlist.id)) {
+                playlistsFiltered.push(playlist);
+            }
+        });
+        playlists = playlistsFiltered;
+
         handlePlaylistTracks(playlists, collections.playlists, callback);
     });
 }

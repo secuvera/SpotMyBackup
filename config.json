@@ -2,7 +2,14 @@
     "uri": "http://localhost:8888",
     "redirect_uri": "http://localhost:8888/login.html",
     "client_id": "[YOUR_TOKEN_HERE]",
+
+    "filename": "spotify_%u_%Y-%m-%d_%H-%i-%s",
     "slowdown_import": 100,
     "slowdown_export": 100,
-    "prettyPrint": 0
+
+    "development": false,
+    "printPlaylists": true,
+    "prettyPrint": 0,
+    "excludeSaved": false,
+    "excludePlaylists": []
 }

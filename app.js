@@ -119,8 +119,7 @@ function download(filename, text) {
         var event = document.createEvent('MouseEvents');
         event.initEvent('click', true, true);
         pom.dispatchEvent(event);
-    }
-    else {
+    } else {
         pom.click();
     }
 }
@@ -189,8 +188,7 @@ function compareEverything() {
 
         globalStep = "Uploading";
         if (typeof importColl !== 'undefined') {
-
-            playlistTotal = collPlaylistCount(importColl);            
+            playlistTotal = collPlaylistCount(importColl);
 
             // TONOTDO:compare starred -> can not really do that since there is no api to manipulate those
             // instead we just create a replacement-standard-list
@@ -217,11 +215,9 @@ function compareEverything() {
 }
 
 function handleTrackUpload() {
-
     trackDiff = savedQueue.length + playlistQueue.length;
     trackTotal = Math.max(collTrackCount(importColl), trackDiff);
     trackStep = trackTotal - trackDiff;
-
 
     if (trackTotal > 0) {
         $('#progressBar').show();
@@ -274,7 +270,7 @@ function makeSurePlaylistExists(name, callback) {
         headers: {
         'Authorization': 'Bearer ' + token
         },
-        success: function(response) {         
+        success: function(response) {
             // alert(JSON.stringify(response));
             collections.playlists[response.name] = {
                 name: response.name,
@@ -327,15 +323,17 @@ function handleSavedRequests(arr, callback) {
     }
 }
 
-
 function handlePlaylistRequestsWithTimeout(arr, callback) {
-        setTimeout(function() { console.log("Fast runners are dead runners"); handlePlaylistRequests(arr, callback) }, conf.slowdown_import);
+    setTimeout(function() {
+        console.log("Fast runners are dead runners");
+        handlePlaylistRequests(arr, callback)
+    }, conf.slowdown_import);
 }
 
 function handlePlaylistRequests(arr, callback) {
     var url = arr.pop();
     if (url) {
-        trackStep += 1;   
+        trackStep += 1;
         $.ajax({
             method: "POST",
             url: url,
@@ -343,7 +341,7 @@ function handlePlaylistRequests(arr, callback) {
             headers: {
             'Authorization': 'Bearer ' + token
             },
-            success: function(response) {      
+            success: function(response) {
                 // collections.playlists[response.name] = {
                 //     id: response.id,
                 //     uri: response.uri
@@ -427,7 +425,7 @@ function handleAuth(accessToken) {
         headers: {
         'Authorization': 'Bearer ' + accessToken
         },
-        success: function(response) {         
+        success: function(response) {
             var user_id = response.id.toLowerCase();
             userId = user_id;
             name = user_id;
@@ -435,7 +433,7 @@ function handleAuth(accessToken) {
             $('#userName').html(name);
             $('#pnlLoggedOut').hide();
 
-            refreshTrackData(function () {                   
+            refreshTrackData(function () {
                 $('#pnlAction').show();
             });
         }
@@ -462,19 +460,22 @@ function refreshMyMusicTracks(callback) {
 //         headers: {
 //             'Authorization': 'Bearer ' + token
 //         },
-//         success: function(data) {         
+//         success: function(data) {
 //             if (!data) return;
 //             if ('tracks' in data) {
 //                 loadTrackChunks(data.tracks.href, arr, callback);
 //             } else {
 //                 callback();
-//             }                
+//             }
 //         }
 //     });
 // }
 
 function loadTrackChunksWithTimeout(url, arr, callback, timeout) {
-        setTimeout(function() { console.log("Taking breath, not to fast my cheetah"); loadTrackChunks(url, arr, callback) }, conf.slowdown_export);
+    setTimeout(function() {
+        console.log("Taking breath, not to fast my cheetah");
+        loadTrackChunks(url, arr, callback);
+    }, conf.slowdown_export);
 }
 
 function loadTrackChunks(url, arr, callback) {
@@ -488,10 +489,10 @@ function loadTrackChunks(url, arr, callback) {
             if ('items' in data) {
                 $.each(data.items, function (index, value) {
                     if(value.track !== null){
-                        arr.push({ id: value.track.id, uri: value.track.uri });    
+                        arr.push({ id: value.track.id, uri: value.track.uri });
                     }else{
                         console.log("track is null", value);
-                    }                    
+                    }
                 });
             } else {
                 arr.push({ id: data.track.id, uri: data.track.uri });

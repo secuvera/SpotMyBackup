@@ -13,7 +13,7 @@
             const hash = window.location.hash;
             if (hash) {
                 const token = window.location.hash.split('&')[0].split('=')[1];
-                target.postMessage(token, conf.uri); // Embedded
+                target.postMessage(token, app.settings.uri); // Embedded
             }
         }
     })();

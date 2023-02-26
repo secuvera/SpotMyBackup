@@ -8,18 +8,18 @@ class App {
         this.refreshProgressInfo = null;
 
         this.settings = {
-            uri: "http://localhost:8888",
-            redirect_uri: "http://localhost:8888/login.html",
-            client_id: "",
+            clientId: '', // Spotify client id
+            uri: 'http://127.0.0.1:8888', // Callback uri for callback-*.html
+            redirectUri: 'http://127.0.0.1:8888/callback-spotify.html', // Spotify's callback uri
 
-            filename: "spotify_%u_%Y-%m-%d_%H-%i-%s",
-            extendedTrack: false, // Extend track data
-            slowdown_import: 100,
-            slowdown_export: 100,
+            filename: 'spotify_%u_%Y-%m-%d_%H-%i-%s',
+            prettyPrint: 0,         // Json pretty-printing spacing level
+            extendedTrack: false,   // Extend track data
+            slowdownExport: 100,    // Slow down api calls for tracks in milliseconds
+            slowdownImport: 100,    // Slow down api calls for tracks in milliseconds
 
             development: false,
             printPlaylists: false,
-            prettyPrint: 0, // Json pretty-printing spacing level
             devShortenSpotifyExportTracks: 0, // Shorten track data
             excludeSaved: false,
             excludePlaylists: []
@@ -117,7 +117,7 @@ class App {
             instance.settings = {...this.settings, ...data}
             return true;
         }).catch(error => {
-            const message = instance.createAlertMessage('warning','<b>Warning:</b> Configuration file not loaded!<br>' + error);
+            const message = instance.createAlertMessage('danger', '<b>Warning:</b> Configuration file not loaded!<br>' + error);
             const pnlLoggedOut = document.getElementById('pnlLoggedOut');
             if (pnlLoggedOut) {
                 pnlLoggedOut.parentNode.insertBefore(message, pnlLoggedOut);
@@ -172,10 +172,15 @@ class App {
         }).then(data => {
             return data;
         }).catch(error => {
+            let errorMessage = 'API failed.';
+            if (error.statusText) {
+                errorMessage += ` ${error.statusText}`
+            }
+            if (error.status) {
+                errorMessage += ` (${error.status})`
+            }
             console.error('Error: ', error);
-            instance.logAppend(instance.createAlertMessage('danger',
-                '<b>Error:</b> ' + error.statusText + ` (${error.status})`
-            ));
+            instance.logAppend(instance.createAlertMessage('danger', `<b>Error:</b> ${errorMessage}`));
             return Promise.reject(error);
         });
     }
@@ -187,8 +192,8 @@ class App {
         const top = (screen.height / 2) - (height / 2);
 
         const set = {
-          client_id: this.settings.client_id,
-          redirect_uri: this.settings.redirect_uri,
+          client_id: this.settings.clientId,
+          redirect_uri: this.settings.redirectUri,
           scope: 'playlist-read playlist-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify',
           response_type: 'token',
           show_dialog: 'true'
@@ -490,7 +495,7 @@ class App {
             this.progressLog.appendChild(spinner);
 
             playlists[i].tracks = await this.spotifyExportTracks(playlists[i].href);
-            // delete playlists[i].href; // @todo should playlist url be removed?
+            delete playlists[i].href;
 
             spinner.children[1].innerHTML = `✅ ${playlists[i].tracks.length} Tracks found in ${playlists[i].name}`;
             spinner.children[0].remove();
@@ -563,8 +568,8 @@ class App {
 
             // @todo Better know the api limit
             await new Promise(resolve => {
-                console.log(`Slow down exporting tracks by ${instance.settings.slowdown_export} ms`);
-                setTimeout(resolve, instance.settings.slowdown_export);
+                console.log(`Slow down exporting tracks by ${instance.settings.slowdownExport} ms`);
+                setTimeout(resolve, instance.settings.slowdownExport);
             });
         } while(url);
 
@@ -819,7 +824,7 @@ function handlePlaylistRequestsWithTimeout(arr, callback) {
     setTimeout(function() {
         console.log("Fast runners are dead runners");
         handlePlaylistRequests(arr, callback)
-    }, conf.slowdown_import);
+    }, conf.slowdownImport);
 }
 
 function handlePlaylistRequests(arr, callback) {

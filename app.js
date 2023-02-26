@@ -94,9 +94,9 @@ class App {
             // @todo Should be not in heading
             pnlLoggedOut.parentNode.append(
                 this.createAlertMessage('danger',
-                    '<b>Sorry, you must use a server!</b>' +
-                    example('Python3 example', 'python3 -m http.server -b 127.0.0.1 8888') +
-                    example('Python2 example', 'python -m SimpleHTTPServer -b 127.0.0.1 8888')
+                    '<b>Sorry, you must use a server!</b> For example:' +
+                    example('Python 3', 'python3 -m http.server -b 127.0.0.1 8888') +
+                    example('Python 2', 'python -m SimpleHTTPServer -b 127.0.0.1 8888')
                 )
             );
         }

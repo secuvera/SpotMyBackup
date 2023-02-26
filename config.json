@@ -4,10 +4,12 @@
     "client_id": "[YOUR_TOKEN_HERE]",
 
     "filename": "spotify_%u_%Y-%m-%d_%H-%i-%s",
+    "extendedTrack": false,
     "slowdown_import": 100,
     "slowdown_export": 100,
 
     "development": false,
+    "devShortenSpotifyExportTracks": 0,
     "printPlaylists": false,
     "prettyPrint": 0,
     "excludeSaved": false,

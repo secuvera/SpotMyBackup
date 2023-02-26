@@ -13,14 +13,21 @@ class App {
             client_id: "",
 
             filename: "spotify_%u_%Y-%m-%d_%H-%i-%s",
+            extendedTrack: false, // Extend track data
             slowdown_import: 100,
             slowdown_export: 100,
 
             development: false,
             printPlaylists: false,
             prettyPrint: 0, // Json pretty-printing spacing level
+            devShortenSpotifyExportTracks: 0, // Shorten track data
             excludeSaved: false,
             excludePlaylists: []
+        };
+
+        this.export = null;
+        this.state = {
+            running: false // Is a currently a process running?
         };
     }
 
@@ -143,8 +150,12 @@ class App {
         });
     }
 
-    async getApi(path) {
-        return fetch('https://api.spotify.com/v1' + path, {
+    async getApi(url) {
+        const instance = this;
+        if (url.startsWith('/')) {
+            url = 'https://api.spotify.com/v1' + url;
+        }
+        return fetch(url, {
             method: 'GET',
             cache: 'no-cache',
             headers: {
@@ -156,12 +167,15 @@ class App {
                 return response.json();
             } else {
                 console.error('Response: ', response);
-                return Promise.reject('Response error');
+                return Promise.reject(response);
             }
         }).then(data => {
             return data;
         }).catch(error => {
             console.error('Error: ', error);
+            instance.logAppend(instance.createAlertMessage('danger',
+                '<b>Error:</b> ' + error.statusText + ` (${error.status})`
+            ));
             return Promise.reject(error);
         });
     }
@@ -234,16 +248,13 @@ class App {
         conf = this.settings;
 
         this.bindControls();
-        this.refreshProgressStart();
-        refreshTrackData(() => {
-            document.getElementById('pnlAction').style.display = 'block';
-        });
+        this.spotifyExport();
     }
 
     bindControls() {
         const instance = this;
 
-        document.getElementById('btnExport').addEventListener('click', () => {
+        document.getElementById('btnDownload').addEventListener('click', () => {
             const d = new Date();
             const dMonth = d.getMonth() + 1;
             let filename = instance.settings.filename;
@@ -254,7 +265,7 @@ class App {
             filename = filename.replaceAll('%i', ((d.getMinutes() < 10) ? '0' : '') + d.getMinutes());
             filename = filename.replaceAll('%s', ((d.getSeconds() < 10) ? '0' : '') + d.getSeconds());
             filename = filename.replaceAll('%u', (userId && userId !== '' ? userId : ''));
-            instance.download(`${filename}.json`, JSON.stringify(collections, null, instance.settings.prettyPrint));
+            instance.download(`${filename}.json`, JSON.stringify(instance.export, null, instance.settings.prettyPrint));
         });
 
         document.getElementById('btnImport').addEventListener('click', () => {
@@ -367,6 +378,199 @@ class App {
             document.getElementById('fileTracks').innerText = `${set2.trackCount} tracks`;
         }
     }
+
+    async spotifyExport() {
+        if (this.state.running) {
+            this.logAppend(this.createAlertMessage('warning',
+                '<b>Warning:</b> A process is curently running!'
+            ));
+            return;
+        }
+
+        this.state.running = true;
+        this.export = {};
+        isExporting = true; // @todo can be later removed
+        this.refreshProgressStart();
+        resetCounter();
+
+        document.getElementById('pnlLoadingAccount').style.display = 'block';
+
+        const loadingTitle = document.getElementById('loadingTitle');
+        loadingTitle.innerHTML = 'Please wait. Loading your playlists and tracks ...';
+
+        // @todo temporary progress log
+        this.progressLog = this.createAlertMessage('info', '<b>Exporting Spotify</b>');
+        this.logAppend(this.progressLog);
+
+        let playlists = await this.spotifyExportPlaylists();
+        this.printPlaylists('Playlists found', playlists);
+        playlists = this.filterPlaylists(playlists);
+        this.printPlaylists('Playlists filtered', playlists);
+        playlists = await this.spotifyExportPlaylistsTracks(playlists);
+        this.export.playlists = playlists;
+
+        if (!conf.excludeSaved) {
+            let saved = await this.spotifyExportSavedTracks();
+            this.export.saved = saved;
+        }
+
+        // @todo old finished
+        loadingTitle.innerHTML = 'Finished loading, you now might want to export or import.';
+        isExporting = false;
+        document.getElementById('pnlAction').style.display = 'block';
+
+        // this.progressLog.remove();
+        this.refreshProgressStop();
+        this.state.running = false;
+    }
+
+    async spotifyExportPlaylists() {
+        const spinner = this.asciiSpinner('time', `Loading playlists...`);
+        this.progressLog.appendChild(spinner);
+        let count = 0;
+
+        let playlists = [];
+        let url = '/users/' + userId + '/playlists'
+        do {
+            const response = await this.getApi(url);
+            if (response.items) {
+                response.items.forEach(playlist => {
+                    if (playlist.tracks && playlist.tracks.href) {
+                        playlists.push({
+                            name: playlist.name,
+                            href: playlist.tracks.href,
+                            id: playlist.id,
+                            tracks: []
+                        });
+                        count++;
+                    }
+                });
+            }
+            url = response.next ?? null;
+            spinner.children[1].innerHTML = `Loading playlists... ${count}`;
+        } while(url);
+
+        spinner.children[1].innerHTML = `✅ ${count} Playlists found`;
+        spinner.children[0].remove();
+        return playlists;
+    }
+
+    printPlaylists(title, playlists) {
+        if (this.settings.printPlaylists) {
+            let data = [];
+            playlists.forEach(playlist => {
+                data.push(`${playlist.name} (${playlist.id})`);
+            });
+            this.logAppend(this.createAlertMessage('info',
+                `<b>${title}:</b><ul><li>` + data.join('</li><li>') + '</li></ul>'
+            ));
+        }
+    }
+
+    filterPlaylists(playlists) {
+        const instance = this;
+        let filtered = [];
+        playlists.forEach(playlist => {
+            if (!instance.settings.excludePlaylists.includes(playlist.id)) {
+                filtered.push(playlist);
+            }
+        });
+
+        // @todo I am lazy, reconstruct log later
+        const spinner = this.asciiSpinner('time', `✅ ${filtered.length} Playlists filterd for export`);
+        spinner.children[0].remove();
+        this.progressLog.appendChild(spinner);
+
+        return filtered;
+    }
+
+    async spotifyExportPlaylistsTracks(playlists) {
+        for (let i = 0; i < playlists.length; i++) {
+            const spinner = this.asciiSpinner('time', `Loading ${playlists[i].name} tracks...`);
+            this.progressLog.appendChild(spinner);
+
+            playlists[i].tracks = await this.spotifyExportTracks(playlists[i].href);
+            // delete playlists[i].href; // @todo should playlist url be removed?
+
+            spinner.children[1].innerHTML = `✅ ${playlists[i].tracks.length} Tracks found in ${playlists[i].name}`;
+            spinner.children[0].remove();
+        }
+        return playlists;
+    }
+
+    async spotifyExportSavedTracks() {
+        const spinner = this.asciiSpinner('time', `Loading saved tracks...`);
+        this.progressLog.appendChild(spinner);
+
+        const tracks = await this.spotifyExportTracks('/me/tracks');
+
+        spinner.children[1].innerHTML = `✅ ${tracks.length} Tracks found in saved`;
+        spinner.children[0].remove();
+        return tracks;
+    }
+
+    async spotifyExportTracks(url) {
+        const instance = this;
+
+        const spinner = this.asciiSpinner('time', `Loading tracks for current list...`);
+        this.progressLog.appendChild(spinner);
+
+        let count = 0;
+        let devCount = 0;
+
+        let tracks = [];
+        do {
+            const response = await this.getApi(url);
+            if (!response) {
+                return;
+            }
+            if (response.items) {
+                response.items.forEach(track => {
+                    if (track.track) {
+                        let trackData = {
+                            id: track.track.id,
+                            uri: track.track.uri
+                        };
+
+                        if (instance.settings.extendedTrack) {
+                            trackData.name = track.track.name;
+                            trackData.album = track.track.album?.name;
+                            if (track.track.artists) {
+                                trackData.artists = [];
+                                track.track.artists.forEach(artist => {
+                                    trackData.artists.push(artist.name);
+                                });
+                            }
+                        }
+
+                        tracks.push(trackData);
+                        count++;
+                    } else {
+                        console.log('Track is null', url, track);
+                        instance.logAppend(instance.createAlertMessage('warning',
+                            '<b>Warning:</b> Track is null! See console log.'
+                        ));
+                    }
+                });
+            }
+            url = response.next ?? null;
+            spinner.children[1].innerHTML = `Loading tracks for current list... ${count}`;
+
+            // On development you might not want to loading all tracks, because this could be huge!
+            if (this.settings.development && this.settings.devShortenSpotifyExportTracks <= ++devCount) {
+                break;
+            }
+
+            // @todo Better know the api limit
+            await new Promise(resolve => {
+                console.log(`Slow down exporting tracks by ${instance.settings.slowdown_export} ms`);
+                setTimeout(resolve, instance.settings.slowdown_export);
+            });
+        } while(url);
+
+        spinner.remove();
+        return tracks;
+    }
 }
 
 var conf = {};
@@ -392,25 +596,6 @@ let instance2 = this; // @todo Development, remove after finished
     app.initialize();
     instance2 = app; // @todo Development, remove after finished
 })();
-
-function refreshTrackData(callback) {
-    if (!isExporting && !isImporting) {
-        isExporting = true;
-        resetCounter();
-        document.getElementById('pnlLoadingAccount').style.display = 'block';
-        const loadingTitle = document.getElementById('loadingTitle');
-        loadingTitle.innerHTML = 'Please wait. Loading your playlists and tracks ...';
-        refreshPlaylist(() => {
-            refreshMyMusicTracks(() => {
-                // refreshStarredTracks(() => {
-                    loadingTitle.innerHTML = 'Finished loading, you now might want to export or import.';
-                    isExporting = false;
-                    callback();
-                // });
-            });
-        }); 
-    }
-}
 
 function resetCounter() {
     globalStep = '';
@@ -710,156 +895,4 @@ function compareIdTracks(imported, stored, addCallback) {
     });
 }
 
-function refreshMyMusicTracks(callback) {
-    collections.saved = [];
-    playlistStep += 1;
 
-    if (conf.excludeSaved) {
-        callback();
-    } else {
-        loadTrackChunks('https://api.spotify.com/v1/me/tracks', collections.saved, callback);
-    }
-}
-
-// DEPRECATED
-// function refreshStarredTracks(callback) {
-//     collections.starred = [];
-//     playlistStep += 1;
-//     loadStarred('https://api.spotify.com/v1/users/' + userId + '/starred', collections.starred, callback)
-// }
-
-// DEPRECATED
-// function loadStarred(url, arr, callback) {
-//     $.ajax({
-//         url: url,
-//         headers: {
-//             'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
-//         },
-//         success: function(data) {
-//             if (!data) return;
-//             if ('tracks' in data) {
-//                 loadTrackChunks(data.tracks.href, arr, callback);
-//             } else {
-//                 callback();
-//             }
-//         }
-//     });
-// }
-
-function loadTrackChunksWithTimeout(url, arr, callback, timeout) {
-    setTimeout(function() {
-        console.log("Taking breath, not to fast my cheetah");
-        loadTrackChunks(url, arr, callback);
-    }, conf.slowdown_export);
-}
-
-function loadTrackChunks(url, arr, callback) {
-    $.ajax({
-        url: url,
-        headers: {
-            'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
-        },
-        success: function (data) {
-            if (!data) return;
-            if ('items' in data) {
-                $.each(data.items, function (index, value) {
-                    if(value.track !== null){
-                        arr.push({ id: value.track.id, uri: value.track.uri });
-                    }else{
-                        console.log("track is null", value);
-                    }
-                });
-            } else {
-                arr.push({ id: data.track.id, uri: data.track.uri });
-            }
-            if (data.next) {
-                loadTrackChunksWithTimeout(data.next, arr, callback);
-            } else {
-                callback();
-            }
-        }
-    });
-}
-
-function refreshPlaylist(callback) {
-    collections.playlists = {};
-    var playlists = [];
-    loadPlaylistChunks('https://api.spotify.com/v1/users/' + userId + '/playlists', playlists, function () {
-        if (conf.printPlaylists) {
-            let logData = [];
-            playlists.forEach(playlist => {
-                logData.push(`${playlist.name} (${playlist.id})`);
-            });
-            instance2.logAppend(instance2.createAlertMessage('info',
-                '<b>Playlists:</b>' +
-                '<ul><li>' + logData.join('</li><li>') + '</li></ul>'
-            ));
-        }
-
-        playlistsFiltered = [];
-        playlists.forEach(playlist => {
-            if (!conf.excludePlaylists.includes(playlist.id)) {
-                playlistsFiltered.push(playlist);
-            }
-        });
-        playlists = playlistsFiltered;
-
-        handlePlaylistTracks(playlists, collections.playlists, callback);
-    });
-}
-
-function loadPlaylistChunks(url, arr, callback) {
-    $.ajax({
-        url: url,
-        headers: {
-            'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
-        },
-        success: function (data) {
-            if (!data) return;
-            if ('items' in data) {
-                $.each(data.items, function (index, value) {
-                    if (value.tracks && value.tracks.href) {
-                        arr.push({
-                            name: value.name,
-                            href: value.tracks.href,
-                            id: value.id,
-                            tracks: []
-                        });
-                    }
-                });
-            } else {
-                if (data.tracks && data.tracks.href) {
-                    arr.push({
-                        name: data.name,
-                        href: data.tracks.href,
-                        id: value.id,
-                        tracks: []
-                    });
-                }
-            }
-            if (data.next) {
-                loadPlaylistChunks(data.next, arr, callback);
-            } else {
-                callback();
-            }
-        }
-    });
-}
-
-function handlePlaylistTracks(arr, result, callback) {
-    var item = arr.pop();
-    if (!item) {
-        return callback();
-    }
-    playlistStep += 1;
-    item.tracks = [];
-    loadTrackChunks(item.href, item.tracks, function () {
-        delete item.href;
-        result[item.name] = item;
-        if (arr.length == 0) {
-            callback();
-        } else {
-            handlePlaylistTracks(arr, result, callback);
-        }
-    });
-}

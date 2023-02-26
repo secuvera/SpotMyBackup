@@ -13,8 +13,8 @@ You can use it at www.spotmybackup.com or on your own webserver (see Q&A).
 * [Spotify: Web Api Reference](https://developer.spotify.com/documentation/web-api/reference/)
 
 * [Spotify: Developer Dashboard](https://developer.spotify.com/dashboard/)
-  * Select or create a application
-  * Configure in settings your redirect/callback uri (http://127.0.0.1:8888/login.html)
+  * Create a application or edit application settings
+  * Configure your redirect/callback uri (http://127.0.0.1:8888/login.html)
 
 Start website with a server, for example:
 
@@ -24,4 +24,12 @@ python3 -m http.server -b 127.0.0.1 8888
 
 # Python 2
 python -m SimpleHTTPServer -b 127.0.0.1 8888
+```
+
+Check export with jq:
+
+```bash
+sudo apt install jq
+
+jq '{file: input_filename, savedCount: .saved? | length, playlistCount: .playlists? | length, playlists: [.playlists?[] | {name: .name, tracks: .tracks | length}]}' ~/Downloads/spotify_*.json
 ```

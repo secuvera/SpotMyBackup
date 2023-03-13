@@ -97,6 +97,7 @@ Developer configuration for `config.json`, you should know what you doing:
   // You might not want to loading all tracks, because this could be huge!
   "devShortenSpotifyExportTracks": 0,
 
+  "dryrun": true,           // Do not make any changes
   "printPlaylists": false,  // Just print playlist on website
   "excludeSaved": false,    // Exclude saved/my-music in export
   "excludePlaylists": []    // Exclude playlist ids in export

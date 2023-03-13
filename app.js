@@ -1,5 +1,9 @@
+// @todo export playlist public?
+// @todo export playlist description
+// @todo Maybe a step by step is useful? export > download > 
 // @todo add this to stop interval: this.refreshProgressStop();
 // @todo if jquery loaded, {login, callback}.html need it too
+// @todo Check if old backups have track ids or uris for fallback
 class App {
     constructor() {
         this.configurationFile = 'config.json';
@@ -12,22 +16,24 @@ class App {
             uri: 'http://127.0.0.1:8888', // Callback uri for callback-*.html
             redirectUri: 'http://127.0.0.1:8888/callback-spotify.html', // Spotify's callback uri
 
-            filename: 'spotify_%u_%Y-%m-%d_%H-%i-%s',
+            filename: 'spotify_%u_%Y-%m-%d_%H-%i-%s', // Exported filename
             prettyPrint: 0,         // Json pretty-printing spacing level
             extendedTrack: false,   // Extend track data
-            slowdownExport: 100,    // Slow down api calls for tracks in milliseconds
-            slowdownImport: 100,    // Slow down api calls for tracks in milliseconds
+            slowdownExport: 100,    // Slowdown api calls for tracks in milliseconds
+            slowdownImport: 100,    // Slowdown api calls for tracks in milliseconds
 
-            development: false,
-            printPlaylists: false,
+            development: false,     // A switch for some switches
             devShortenSpotifyExportTracks: 0, // Shorten track data
-            excludeSaved: false,
-            excludePlaylists: []
+            dryrun: false,           // Do not make any changes
+            printPlaylists: false,  // Just print playlist on website
+            excludeSaved: false,    // Exclude saved/my-music in export
+            excludePlaylists: []    // Exclude playlist ids in export
         };
 
         this.export = null;
         this.state = {
-            running: false // Is a currently a process running?
+            running: false, // Is a currently a process running?
+            userId: '',
         };
     }
 
@@ -150,28 +156,46 @@ class App {
         });
     }
 
-    async getApi(url) {
+    async api(url, data, method) {
         const instance = this;
+
         if (url.startsWith('/')) {
             url = 'https://api.spotify.com/v1' + url;
         }
-        return fetch(url, {
-            method: 'GET',
+
+        let options = {
+            method: (method ?? 'GET'),
             cache: 'no-cache',
             headers: {
                 'Accept': 'application/json',
                 'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
             }
-        }).then(response => {
-            if (response.status === 200) {
-                return response.json();
+        };
+
+        if (data) {
+            if (options.method !== 'PUT') {
+                options.method = 'POST';
+            }
+            options.headers['Content-type'] = 'application/json';
+            options.body = JSON.stringify(data);
+        }
+
+        if (options.method === 'PUT') {
+            delete options.headers.Accept;
+        }
+
+        return fetch(url, options).then(response => {
+            if ([200, 201].includes(response.status)) {
+                if (options.method === 'PUT') {
+                    return true;
+                } else {
+                    return response.json();
+                }
             } else {
                 console.error('Response: ', response);
                 return Promise.reject(response);
             }
-        }).then(data => {
-            return data;
-        }).catch(error => {
+        }).catch(async error => {
             let errorMessage = 'API failed.';
             if (error.statusText) {
                 errorMessage += ` ${error.statusText}`
@@ -179,10 +203,32 @@ class App {
             if (error.status) {
                 errorMessage += ` (${error.status})`
             }
+            try {
+                const errorText = await error.text();
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.error && errorJson.error.message) {
+                    errorMessage += `<br>${errorJson.error.message}`
+                    if (errorJson.error.status) {
+                        errorMessage += ` (${errorJson.error.status})`
+                    }
+                }
+            } catch(exeption) {}
             console.error('Error: ', error);
             instance.logAppend(instance.createAlertMessage('danger', `<b>Error:</b> ${errorMessage}`));
             return Promise.reject(error);
         });
+    }
+
+    async getApi(url) {
+        return await this.api(url, null, null);
+    }
+
+    async postApi(url, data) {
+        return await this.api(url, data, null);
+    }
+
+    async putApi(url, data) {
+        return await this.api(url, data, 'PUT');
     }
 
     spotifyAuthorize() {
@@ -191,7 +237,7 @@ class App {
         const left = (screen.width / 2) - (width / 2);
         const top = (screen.height / 2) - (height / 2);
 
-        const set = {
+        const queryParams = {
           client_id: this.settings.clientId,
           redirect_uri: this.settings.redirectUri,
           scope: 'playlist-read playlist-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify',
@@ -199,10 +245,20 @@ class App {
           show_dialog: 'true'
         };
         this.authWindow = window.open(
-            'https://accounts.spotify.com/authorize?' + urlEncodeSet(set),
+            'https://accounts.spotify.com/authorize?' + this.arrayToQueryParameter(queryParams),
             'Spotify',
             'menubar=no,location=no,resizable=no,scrollbars=no,status=no, width=' + width + ', height=' + height + ', top=' + top + ', left=' + left
         );
+    }
+
+    arrayToQueryParameter(data) {
+        let list = [];
+        for (let key in data) {
+            if (data.hasOwnProperty(key)) {
+                list.push(encodeURIComponent(key) + '=' + encodeURIComponent(data[key]));
+            }
+        }
+        return list.join('&');
     }
 
     async spotifyAuthorizeCallback(event) {
@@ -248,9 +304,7 @@ class App {
         const userAvatar = (data.images[0]?.url ? '<img src="' + data.images[0]?.url + '" style="max-height: 32px; vertical-align: middle;"> ' : '');
         document.getElementById('userName').innerHTML = `${userAvatar}<span>${data.userName}</span>`;
 
-        // @todo remove when finished
-        userId = data.userId;
-        conf = this.settings;
+        this.state.userId = data.userId;
 
         this.bindControls();
         this.spotifyExport();
@@ -269,7 +323,7 @@ class App {
             filename = filename.replaceAll('%H', ((d.getHours() < 10) ? '0' : '') + d.getHours());
             filename = filename.replaceAll('%i', ((d.getMinutes() < 10) ? '0' : '') + d.getMinutes());
             filename = filename.replaceAll('%s', ((d.getSeconds() < 10) ? '0' : '') + d.getSeconds());
-            filename = filename.replaceAll('%u', (userId && userId !== '' ? userId : ''));
+            filename = filename.replaceAll('%u', instance.state.userId);
             instance.download(`${filename}.json`, JSON.stringify(instance.export, null, instance.settings.prettyPrint));
         });
 
@@ -278,8 +332,8 @@ class App {
             document.getElementById('pnlImport').style.display = 'block';
         });
 
-        document.getElementById('fileImport').addEventListener('change', () => {
-            readFile();
+        document.getElementById('fileImport').addEventListener('change', (event) => {
+            instance.spotifyImport(event);
         });
     }
 
@@ -350,39 +404,14 @@ class App {
     }
 
     refreshProgressStop() {
-        if (!this.refreshProgressInterval) {
+        if (this.refreshProgressInterval) {
             clearInterval(this.refreshProgressInterval);
         }
         if (this.settings.development && this.refreshProgressInfo) {
             this.refreshProgressInfo.remove();
         }
     }
-
-    refreshProgress() {
-        document.getElementById('globalStep').innerText = globalStep;
-        document.getElementById('playlistStep').innerText = playlistStep;
-        document.getElementById('playlistTotal').innerText = playlistTotal;
-        document.getElementById('trackStep').innerText = trackStep;
-        document.getElementById('trackTotal').innerText = trackTotal;
-
-        let progress = 0;
-        if (trackTotal > 0) {
-            progress = Math.floor(((trackStep / trackTotal) * 100));
-        }
-        document.getElementById('progressBar').style.width = progress + '%';
-
-        if (typeof collections !== 'undefined' && !makingChanges) {
-            const set = collectionProperties(collections);
-            document.getElementById('loadingPlaylists').innerText = `${set.playlistCount} playlists`;
-            document.getElementById('loadingTracks').innerText = `${set.trackCount} tracks`;
-        }
-
-        if (typeof importColl !== 'undefined') {
-            const set2 = collectionProperties(importColl);
-            document.getElementById('filePlaylists').innerText = `${set2.playlistCount} playlists`;
-            document.getElementById('fileTracks').innerText = `${set2.trackCount} tracks`;
-        }
-    }
+    refreshProgress() {}
 
     async spotifyExport() {
         if (this.state.running) {
@@ -394,9 +423,7 @@ class App {
 
         this.state.running = true;
         this.export = {};
-        isExporting = true; // @todo can be later removed
         this.refreshProgressStart();
-        resetCounter();
 
         document.getElementById('pnlLoadingAccount').style.display = 'block';
 
@@ -404,8 +431,8 @@ class App {
         loadingTitle.innerHTML = 'Please wait. Loading your playlists and tracks ...';
 
         // @todo temporary progress log
-        this.progressLog = this.createAlertMessage('info', '<b>Exporting Spotify</b>');
-        this.logAppend(this.progressLog);
+        this.progressLogExport = this.createAlertMessage('info', '<b>Exporting Spotify</b>');
+        this.logAppend(this.progressLogExport);
 
         let playlists = await this.spotifyExportPlaylists();
         this.printPlaylists('Playlists found', playlists);
@@ -414,28 +441,27 @@ class App {
         playlists = await this.spotifyExportPlaylistsTracks(playlists);
         this.export.playlists = playlists;
 
-        if (!conf.excludeSaved) {
+        if (!this.settings.excludeSaved) {
             let saved = await this.spotifyExportSavedTracks();
             this.export.saved = saved;
         }
 
         // @todo old finished
         loadingTitle.innerHTML = 'Finished loading, you now might want to export or import.';
-        isExporting = false;
         document.getElementById('pnlAction').style.display = 'block';
 
-        // this.progressLog.remove();
+        // this.progressLogExport.remove();
         this.refreshProgressStop();
         this.state.running = false;
     }
 
     async spotifyExportPlaylists() {
         const spinner = this.asciiSpinner('time', `Loading playlists...`);
-        this.progressLog.appendChild(spinner);
+        this.progressLogExport.appendChild(spinner);
         let count = 0;
 
         let playlists = [];
-        let url = '/users/' + userId + '/playlists'
+        let url = '/users/' + this.state.userId + '/playlists'
         do {
             const response = await this.getApi(url);
             if (response.items) {
@@ -484,7 +510,7 @@ class App {
         // @todo I am lazy, reconstruct log later
         const spinner = this.asciiSpinner('time', `✅ ${filtered.length} Playlists filterd for export`);
         spinner.children[0].remove();
-        this.progressLog.appendChild(spinner);
+        this.progressLogExport.appendChild(spinner);
 
         return filtered;
     }
@@ -492,7 +518,7 @@ class App {
     async spotifyExportPlaylistsTracks(playlists) {
         for (let i = 0; i < playlists.length; i++) {
             const spinner = this.asciiSpinner('time', `Loading ${playlists[i].name} tracks...`);
-            this.progressLog.appendChild(spinner);
+            this.progressLogExport.appendChild(spinner);
 
             playlists[i].tracks = await this.spotifyExportTracks(playlists[i].href);
             delete playlists[i].href;
@@ -505,7 +531,7 @@ class App {
 
     async spotifyExportSavedTracks() {
         const spinner = this.asciiSpinner('time', `Loading saved tracks...`);
-        this.progressLog.appendChild(spinner);
+        this.progressLogExport.appendChild(spinner);
 
         const tracks = await this.spotifyExportTracks('/me/tracks');
 
@@ -518,7 +544,7 @@ class App {
         const instance = this;
 
         const spinner = this.asciiSpinner('time', `Loading tracks for current list...`);
-        this.progressLog.appendChild(spinner);
+        this.progressLogExport.appendChild(spinner);
 
         let count = 0;
         let devCount = 0;
@@ -568,7 +594,7 @@ class App {
 
             // @todo Better know the api limit
             await new Promise(resolve => {
-                console.log(`Slow down exporting tracks by ${instance.settings.slowdownExport} ms`);
+                console.log(`Slowdown exporting tracks by ${instance.settings.slowdownExport} ms`);
                 setTimeout(resolve, instance.settings.slowdownExport);
             });
         } while(url);
@@ -576,328 +602,293 @@ class App {
         spinner.remove();
         return tracks;
     }
+
+    async spotifyImport(event) {
+        if (this.state.running) {
+            this.logAppend(this.createAlertMessage('warning',
+                '<b>Warning:</b> A process is curently running!'
+            ));
+            return;
+        }
+
+        // @todo We could support importing multiple files at one, but should we?!
+        if (event.target.files.length > 1) {
+            this.logAppend(this.createAlertMessage('warning',
+                '<b>Warning:</b> Importing multiple files is not supported!'
+            ));
+            return;
+        }
+
+        if (event.target.files.length === 1) {
+            this.state.running = true;
+
+            const data = await this.readFileAsync(event.target.files[0]);
+
+            // @todo temporary progress log
+            this.progressLogImport = this.createAlertMessage('info', '<b>Importing to Spotify</b>');
+            this.logAppend(this.progressLogImport);
+
+            document.getElementById('pnlFile').style.display = 'none';
+            document.getElementById('pnlFileInfo').style.display = 'block';
+            document.getElementById('pnlUpload').style.display = 'block';
+
+            if (this.settings.dryrun) {
+                const spinner = this.asciiSpinner('time', `ℹ️ Dry run: Nothing will be stored`);
+                spinner.children[0].remove();
+                this.progressLogImport.appendChild(spinner);
+            }
+
+            // @todo Check starred import
+            if (data.starred) {
+                data.playlists.push({
+                    name: 'Deprecated "starred" playlist',
+                    tracks: data.starred
+                });
+
+                const spinner = this.asciiSpinner('time', `⚠️ Starred is deprecated and will be imported as a playlist!`);
+                spinner.children[0].remove();
+                this.progressLogImport.appendChild(spinner);
+            }
+
+            if (data.playlists) {
+                await this.spotifyImportPlaylists(data.playlists);
+            }
+
+            if (data.saved) {
+                await this.spotifyImportSaved(data.saved);
+            }
+
+            this.state.running = false;
+        }
+    }
+
+    readFileAsync(file) {
+        return new Promise((resolve, reject) => {
+            if (!file || file.type !== 'application/json') {
+                this.logAppend(this.createAlertMessage('danger',
+                    '<b>Error:</b> File is not supported!'
+                ));
+                reject();
+            }
+
+            document.getElementById('fileName').innerHTML = file.name; // @todo better view
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const json = event.target.result;
+                const data = JSON.parse(json);
+                resolve(data);
+            };
+            reader.onerror = reject;
+            reader.readAsText(file);
+        });
+    }
+
+    async spotifyImportPlaylists(playlists) {
+        const instance = this;
+        const spinner = this.asciiSpinner('time', `Importing playlists...`);
+        this.progressLogImport.appendChild(spinner);
+        let count = 0;
+
+        for (let i = 0; i < playlists.length; i++)  {
+            let foundPlaylist = null;
+            instance.export.playlists.forEach(exportedPlaylist => {
+                if (playlists[i].id === exportedPlaylist.id) {
+                    foundPlaylist = exportedPlaylist;
+                    return;
+                }
+            });
+
+            // @todo I don't know if guess by name is a good idea
+            if (!foundPlaylist) {
+                instance.export.playlists.forEach(exportedPlaylist => {
+                    if (playlists[i].name === exportedPlaylist.name) {
+                        foundPlaylist = exportedPlaylist;
+                        return;
+                    }
+                });
+            }
+
+            if (!foundPlaylist) {
+                // @todo add playlist description
+                const newPlaylist = await this.createPlaylist(playlists[i].name, '');
+                if (newPlaylist) {
+                    foundPlaylist = newPlaylist;
+                }
+            }
+
+            if (!foundPlaylist && !this.settings.dryrun) {
+                const spinner = this.asciiSpinner('time', `❌ Playlists not found or created in Spotify: ${playlists[i].name}`);
+                spinner.children[0].remove();
+                this.progressLogImport.appendChild(spinner);
+            }
+
+            if (foundPlaylist) {
+                const tracksToImport = this.comparePlaylistTracks(playlists[i], foundPlaylist);
+                await this.spotifyImportTracks(foundPlaylist, tracksToImport);
+            }
+
+            count++;
+            spinner.children[1].innerHTML = `Importing playlists... ${count}`;
+        }
+
+        spinner.children[1].innerHTML = `✅ ${count} Playlists imported`;
+        spinner.children[0].remove();
+    }
+
+    async createPlaylist(name, description) {
+        if (!description) {
+            description = '';
+        }
+
+        const data = {
+            name: name,
+            public: false,
+            collaborative: false,
+            description: description
+        };
+
+        if (!this.settings.dryrun) {
+            const response = await this.postApi('/users/' + this.state.userId + '/playlists', data);
+            if (response && response.id !== '') {
+                const spinner = this.asciiSpinner('time', `✅ Playlists created: ${name}`);
+                spinner.children[0].remove();
+                this.progressLogImport.appendChild(spinner);
+
+                return response;
+            } else {
+                const spinner = this.asciiSpinner('time', `❌ Playlists not created: ${name}`);
+                spinner.children[0].remove();
+                this.progressLogImport.appendChild(spinner);
+            }
+        } else {
+            const spinner = this.asciiSpinner('time', `ℹ️ Playlists created: ${name}`);
+            spinner.children[0].remove();
+            this.progressLogImport.appendChild(spinner);
+        }
+        return null;
+    }
+
+    // Note: Saved import want ids instead of uris
+    comparePlaylistTracks(importedPlaylist, storedPlaylist, onlyIds) {
+        let tracks = [];
+        importedPlaylist.tracks.forEach(importedTrack => {
+            let found = false;
+            if (storedPlaylist.tracks && storedPlaylist.tracks.length > 0) {
+                storedPlaylist.tracks.forEach(storedTrack => {
+                    if (!onlyIds && importedTrack.uri === storedTrack.uri) {
+                        found = true;
+                        return;
+                    } else if (onlyIds && importedTrack.id === storedTrack.id) {
+                        found = true;
+                        return;
+                    }
+                });
+            }
+
+            // Select only only missing tracks for import
+            if (!found) {
+                tracks.push(!onlyIds ? importedTrack.uri : importedTrack.id);
+            }
+        });
+        return tracks;
+    }
+
+    async spotifyImportTracks(playlist, tracks) {
+        const instance = this;
+        tracks = tracks.reverse();
+        let count = 0;
+        const chunkSize = 100;
+        for (let i = 0; i < tracks.length; i += chunkSize) {
+            const chunkTracks = tracks.slice(i, i + chunkSize);
+
+            if (!this.settings.dryrun) {
+                const response = await this.postApi('/playlists/' + playlist.id + '/tracks', {
+                    uris: chunkTracks.reverse(),
+                    position: 0
+                });
+
+                if (response && response.id !== '') {
+                    count += chunkTracks.length;
+                } else {
+                    console.error('Playlists not fully imported', playlist, chunkTracks);
+
+                    const spinner = this.asciiSpinner('time', `❌ Playlists not fully imported! See console error.`);
+                    spinner.children[0].remove();
+                    this.progressLogImport.appendChild(spinner);
+                }
+
+                // @todo Better know the api limit
+                await new Promise(resolve => {
+                    console.log(`Slowdown importing tracks by ${instance.settings.slowdownImport} ms`);
+                    setTimeout(resolve, instance.settings.slowdownImport);
+                });
+            } else {
+                count += chunkTracks.length;
+            }
+        }
+
+        const icon = (!this.settings.dryrun ? '✅' : 'ℹ️');
+        const spinner = this.asciiSpinner('time', `${icon} ${count} / ${tracks.length} tracks imported to playlist: ${playlist.name}`);
+        spinner.children[0].remove();
+        this.progressLogImport.appendChild(spinner);
+    }
+
+    async spotifyImportSaved(saved) {
+        const instance = this;
+        const spinner = this.asciiSpinner('time', `Importing saved...`);
+        this.progressLogImport.appendChild(spinner);
+
+        const tracksToImport = this.comparePlaylistTracks({tracks: saved}, instance.export.saved, true);
+        await this.spotifyImportSavedTracks(tracksToImport);
+
+        spinner.children[1].innerHTML = `✅ Saved imported`;
+        spinner.children[0].remove();
+    }
+
+    async spotifyImportSavedTracks(tracks) {
+        const instance = this;
+        tracks = tracks.reverse();
+        let count = 0;
+        const chunkSize = 50;
+        for (let i = 0; i < tracks.length; i += chunkSize) {
+            const chunkTracks = tracks.slice(i, i + chunkSize);
+
+            if (!this.settings.dryrun) {
+                const response = await this.putApi('/me/tracks', {
+                    ids: chunkTracks.reverse()
+                });
+
+                if (response) {
+                    count += chunkTracks.length;
+                } else {
+                    console.error('Saved not fully imported', tracks, chunkTracks);
+
+                    const spinner = this.asciiSpinner('time', `❌ Saved not fully imported! See console error.`);
+                    spinner.children[0].remove();
+                    this.progressLogImport.appendChild(spinner);
+                }
+
+                // @todo Better know the api limit
+                await new Promise(resolve => {
+                    console.log(`Slowdown importing tracks by ${instance.settings.slowdownImport} ms`);
+                    setTimeout(resolve, instance.settings.slowdownImport);
+                });
+            } else {
+                count += chunkTracks.length;
+            }
+        }
+
+        const icon = (!this.settings.dryrun ? '✅' : 'ℹ️');
+        const spinner = this.asciiSpinner('time', `${icon} ${count} / ${tracks.length} tracks imported to playlist saved`);
+        spinner.children[0].remove();
+        this.progressLogImport.appendChild(spinner);
+    }
 }
 
-var conf = {};
-
-var userId = '';
-var collections = {};
-
-var isImporting = false;
-var isExporting = false;
-var globalStep = "";
-var playlistStep = 0;
-var trackStep = 0;
-var trackTotal = 0;
-
-var playlistQueue = [];
-var savedQueue = [];
-
-var makingChanges = false;
-
-let instance2 = this; // @todo Development, remove after finished
 (function() {
     const app = new App();
     app.initialize();
-    instance2 = app; // @todo Development, remove after finished
 })();
-
-function resetCounter() {
-    globalStep = '';
-    playlistStep = 0;
-    playlistTotal = 0;
-    trackStep = 0;
-    trackTotal = 0;
-}
-
-function urlEncodeSet(set) {
-    var comps = [];
-    for (var i in set) {
-        if (set.hasOwnProperty(i)) {
-            comps.push(encodeURIComponent(i)+"="+encodeURIComponent(set[i]));
-        }
-    }
-    var string = comps.join("&");
-    return string;
-}
-
-function readFile(evt) {
-    //Retrieve the first (and only!) File from the FileList object
-    var f = evt.target.files[0]; 
-
-    if (f) {
-        $('#fileName').html(f.name);
-
-        var r = new FileReader();
-        r.onload = function(e) { 
-            var json = e.target.result;
-
-            importColl = JSON.parse(json);
-
-            $('#pnlFile').hide();
-            $('#pnlFileInfo').show();
-            $('#pnlUpload').show();
-
-            compareEverything();
-        }
-        r.readAsText(f);
-    } else { 
-      alert("Failed to load file");
-    }
-}
-
-function collectionProperties(coll) {
-    return { playlistCount: collPlaylistCount(coll), trackCount: collTrackCount(coll) };
-}
-
-function collTrackCount(coll) {
-    var count = 0;
-    var keys = _.keys(coll.playlists);
-    $.each(keys, function (index, value) {
-        count += coll.playlists[value].tracks.length;
-    });
-    if (coll.starred) {
-        count += coll.starred.length;
-    }
-    if (coll.saved) {
-        count += coll.saved.length;
-    }
-    return count;
-}
-
-function collPlaylistCount(coll) {
-    var keys = _.keys(coll.playlists);
-    var count = keys.length + 1;
-    if (!("importedStarred" in keys)) {
-        count++;
-    }
-    return count;
-}
-
-function compareEverything() {
-    if (!isImporting && !isExporting) {
-        isImporting = true;
-        makingChanges = true;
-        resetCounter();
-
-        savedQueue = [];
-        playlistQueue = [];
-
-        globalStep = "Uploading";
-        if (typeof importColl !== 'undefined') {
-            playlistTotal = collPlaylistCount(importColl);
-
-            // TONOTDO:compare starred -> can not really do that since there is no api to manipulate those
-            // instead we just create a replacement-standard-list
-            globalStep = "Comparing starred tracks";
-            
-            makeSureImportedStarredExists(function (proceed) {
-                if (importColl.starred && importColl.starred.length > 0) {
-                    compareUriTracks(importColl.starred, collections.starred, addToStarred);
-                }
-                // compare saved
-                globalStep = "Comparing saved tracks";
-                compareIdTracks(importColl.saved, collections.saved, addToSaved);
-                playlistStep += 1;
-
-                // compare other playlists
-                var playlistNames = _.keys(importColl.playlists);
-                globalStep = "Comparing custom playlists";
-                handlePlaylistCompare(playlistNames.reverse(), function () {
-                    handleTrackUpload();
-                });
-            });
-        }
-    }
-}
-
-function handleTrackUpload() {
-    trackDiff = savedQueue.length + playlistQueue.length;
-    trackTotal = Math.max(collTrackCount(importColl), trackDiff);
-    trackStep = trackTotal - trackDiff;
-
-    if (trackTotal > 0) {
-        $('#progressBar').show();
-        globalStep = "Uploading tracks";
-        handleSavedRequests(savedQueue.reverse(), function () {
-            handlePlaylistRequests(playlistQueue.reverse(), function () {
-                globalStep = "Finished uploading";
-                trackTotal = trackStep;
-                isImporting = false;
-            });
-        });
-    } else {
-        globalStep = "No new tracks found in import";
-    }
-}
-
-function handlePlaylistCompare(names, callback) {
-    var name = names.pop();
-    if (!name) {
-        callback();
-        return;
-    }
-    makeSurePlaylistExists(name, function (proceed) {
-        if (proceed) {
-            var playlistId = collections.playlists[name].id;
-            compareUriTracks(importColl.playlists[name].tracks, collections.playlists[name].tracks, function (uri) {
-                addToPlaylist(playlistId, uri);
-            });
-        }
-        handlePlaylistCompare(names, callback);
-    });
-}
-
-function addToPlaylist(playlistId, trackUri) {
-    playlistQueue.push('https://api.spotify.com/v1/users/' + userId + '/playlists/' + playlistId + '/tracks?uris=' + encodeURIComponent(trackUri));
-}
-
-function makeSurePlaylistExists(name, callback) {
-    playlistStep += 1;
-    if (name in collections.playlists) {
-        callback(true);
-        return;
-    }
-    var set = { name: name, public: "true" };
-    $.ajax({
-        method: "POST",
-        url: 'https://api.spotify.com/v1/users/' + userId + '/playlists',
-        data: JSON.stringify(set),
-        contentType: 'application/json',
-        headers: {
-        'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
-        },
-        success: function(response) {
-            // alert(JSON.stringify(response));
-            collections.playlists[response.name] = {
-                name: response.name,
-                href: response.tracks.href,
-                id: response.id,
-                tracks: []
-            };
-            callback(true);
-        },
-        fail: function () {
-            callback(false);
-        }
-    });
-}
-
-function makeSureImportedStarredExists(callback) {
-    var name = 'importedStarred';
-    makeSurePlaylistExists(name, callback);
-}
-
-function addToStarred(trackUri) {
-    var name = 'importedStarred';
-    var playlistId = collections.playlists[name].id;
-    uriInTracks(trackUri, collections.playlists[name].tracks, function (uri) {
-        addToPlaylist(playlistId, uri);
-    });
-}
-
-function handleSavedRequests(arr, callback) {
-    var url = arr.pop();
-    if (url) {
-        trackStep += 1;
-        $.ajax({
-            method: "PUT",
-            url: url,
-            headers: {
-            'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
-            },
-            success: function () {
-            },
-            fail: function (jqXHR, textStatus, errorThrown) {
-                console.log(errorThrown);
-            }
-        })
-        .always(function () {
-            handleSavedRequests(arr, callback);
-        });
-    } else {
-        callback();
-    }
-}
-
-function handlePlaylistRequestsWithTimeout(arr, callback) {
-    setTimeout(function() {
-        console.log("Fast runners are dead runners");
-        handlePlaylistRequests(arr, callback)
-    }, conf.slowdownImport);
-}
-
-function handlePlaylistRequests(arr, callback) {
-    var url = arr.pop();
-    if (url) {
-        trackStep += 1;
-        $.ajax({
-            method: "POST",
-            url: url,
-            contentType: 'application/json',
-            headers: {
-            'Authorization': 'Bearer ' + sessionStorage.getItem('accessToken')
-            },
-            success: function(response) {
-                // collections.playlists[response.name] = {
-                //     id: response.id,
-                //     uri: response.uri
-                // };
-            },
-            fail: function (jqXHR, textStatus, errorThrown) {
-                console.log(errorThrown);
-            }
-        })
-        .always(function () {
-            handlePlaylistRequestsWithTimeout(arr, callback);
-        })
-    } else {
-        callback();
-    }
-}
-
-function uriInTracks(uri, tracks, addCallback) {
-    var found = false;
-    $.each(tracks, function (index, value) {
-        if (value.uri == uri) {
-            found = true;
-        }
-    });
-    if (!found) {
-        addCallback(uri);
-    }
-}
-
-function addToSaved(id) {
-    savedQueue.push('https://api.spotify.com/v1/me/tracks?ids='+id);
-}
-
-function compareUriTracks(imported, stored, addCallback) {
-    $.each(imported, function (index, value) {
-        var found = false;
-        $.each(stored, function (index2, value2) {
-            if (value.uri == value2.uri) {
-                found = true;
-            }
-        });
-        if (!found) {
-            addCallback(value.uri);
-        }
-    });
-}
-
-function compareIdTracks(imported, stored, addCallback) {
-    $.each(imported, function (index, value) {
-        var found = false;
-        $.each(stored, function (index2, value2) {
-            if (value.id == value2.id) {
-                found = true;
-            }
-        });
-        if (!found) {
-            addCallback(value.id);
-        }
-    });
-}
 
 

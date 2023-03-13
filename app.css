@@ -1,108 +1,129 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
 body {
     margin: 0 0 40px 0;
     padding: 0;
     font-family: 'Lato', sans-serif;
+    font-size: 16px;
     background: url(gplaypattern.png) repeat;
     background-size: 188px 178px;
 }
 
+.header,
+.footer,
 .container {
+    margin: 0 auto;
+    padding: 12px;
     width: 640px;
-    margin-left: auto;
-    margin-right: auto;
+    background-color: rgba(255,255,255,0.9);
 }
-.footer {
+
+.header {
+    color: #444;
+    margin-bottom: 10px;
+    border-bottom: solid 1px #eaeaea;
+}
+.header h1 {
+    margin: 0 0 20px 0;
+    font-size: 44px;
+    font-weight: bold;
+}
+.header h1 span {
+    font-weight: 300;
+    color: #555;
+}
+.header p {
+    margin: 0;
+    font-size: 24px;
+}
+
+.footer-wrapper {
     position: fixed;
     bottom: 0;
     width: 100%;
 }
-
-.heading {
-    color: #444;
-    font-size: 24px;
-    background-color: rgba(255,255,255,0.9);
-    border-bottom: solid 1px #eaeaea;
-    width: 100%;
-    z-index: 500;
-    padding: 12px;
+.footer {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0;
+    border-top: solid 1px #eaeaea;
 }
-
-.button-main {
-    font-size: 18px;
-    font-weight: 600;
-    line-height: 1.5;
-    color: #fff;
-    background-color: #2ebd59;
+.footer a {
     display: inline-block;
-    margin-bottom: 0;
-    text-align: center;
-    vertical-align: middle;
-    cursor: pointer;
-    background-image: none;
-    border: 1px solid transparent;
-    white-space: nowrap;
-    border-radius: 500px;
-    padding: 12px 47px 8px;
-    border-width: 0;
-    letter-spacing: 1.2px;
-    min-width: 130px;
-    text-transform: uppercase;
-    white-space: normal;
-    margin: 0 0 1em;
-}
-.button-big {
-    margin-left: 150px;
-}
-.button-medium {
-    margin-left: 80px;
-}
+    flex: 0 1 auto;
 
-.title-bold {
-    font-weight: bold; 
-    font-size: 44px;
-}
-.title-light {
-    font-weight: 300; 
-    color: #555;
-    font-size: 44px;
-}
-.title-medium {
-    font-weight: bold;
-    font-size: 18px;
-}
-
-.progress-bar {
-    width: 0%;
-    background-color: #86e01e;
-    position: relative;
-    height: 16px;
-    border-radius: 4px;
-    -webkit-transition: 0.4s linear;
-    -moz-transition: 0.4s linear;
-    -o-transition: 0.4s linear;
-    transition: 0.4s linear;
-    -webkit-transition-property: width, background-color;
-    -moz-transition-property: width, background-color;
-    -o-transition-property: width, background-color;
-    transition-property: width, background-color;
-    -webkit-box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.25), inset 0 1px rgba(255, 255, 255, 0.1);
-    box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.25), inset 0 1px rgba(255, 255, 255, 0.1);
-}
-
-.progress {
-    width: 100%;
-    padding: 4px;
-    margin-top: 10px;
-}
-
-.link {
     font-size: 14px;
     padding: 5px 15px;
     color: #121F59;
     text-decoration: none;
 }
-.link:hover {
+.footer a:hover {
     color: #A2C852;
+}
+
+.container {
+    border-bottom: solid 1px #eaeaea;
+}
+.container > *:last-child > *:last-child,
+.container > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+.button {
+    display: block;
+    margin: 0 auto;
+    padding: 10px 47px;
+    min-width: 130px;
+
+    color: #fff;
+    background-color: #2ebd59;
+    background-image: none;
+    border: none;
+    border-radius: 999em;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.5em;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    text-align: center;
+    white-space: nowrap;
+    white-space: normal;
+    cursor: pointer;
+}
+
+.bg-red {
+    background-color: #bd2e2e;
+}
+
+.avatar {
+    padding-bottom: 10px;
+    font-weight: bold;
+}
+
+#login,
+#btnDownload {
+    margin-bottom: 1em;
+}
+
+#pnlImport {
+    display: flex;
+}
+#pnlImport label {
+    display: inline-block;
+    cursor: pointer;
+}
+#pnlImport input {
+    display: none;
+}
+
+.badge-fork img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border: 0;
 }
 
 .alert {
@@ -111,9 +132,9 @@ body {
     margin-bottom: 1rem;
     border: 1px solid transparent;
     border-radius: .25rem;
-
-    /* @todo remove if fixed: pnlLoggedOut.parentNode.append */
-    font-size: initial;
+}
+.alert > *:last-child {
+    margin-bottom: 0;
 }
 .alert-info {
     color: #0c5460;

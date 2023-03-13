@@ -1,15 +1,12 @@
 // @todo export playlist public?
 // @todo export playlist description
 // @todo Maybe a step by step is useful? export > download > 
-// @todo add this to stop interval: this.refreshProgressStop();
 // @todo if jquery loaded, {login, callback}.html need it too
 // @todo Check if old backups have track ids or uris for fallback
 class App {
     constructor() {
         this.configurationFile = 'config.json';
         this.authWindow = null;
-        this.refreshProgressInterval = null;
-        this.refreshProgressInfo = null;
 
         this.settings = {
             clientId: '', // Spotify client id
@@ -32,9 +29,10 @@ class App {
 
         this.export = null;
         this.state = {
-            running: false, // Is a currently a process running?
             userId: '',
         };
+
+        this.container = document.getElementById('container');
     }
 
     async initialize() {
@@ -76,13 +74,6 @@ class App {
         }
     }
 
-    logAppend(element) {
-        const log = document.getElementById('log');
-        if (log) {
-            log.append(element);
-        }
-    }
-
     createAlertMessage(type, message) {
         const div = document.createElement('div');
         div.classList.add('alert', `alert-${type}`);
@@ -100,19 +91,16 @@ class App {
             return true;
         }
 
-        const pnlLoggedOut = document.getElementById('pnlLoggedOut');
-        if (pnlLoggedOut) {
-            const example = (title, code) => {return `<p><b>${title}:</b><br>${code}</p>`};
-            pnlLoggedOut.innerHTML = '';
-            // @todo Should be not in heading
-            pnlLoggedOut.parentNode.append(
-                this.createAlertMessage('danger',
-                    '<b>Sorry, you must use a server!</b> For example:' +
-                    example('Python 3', 'python3 -m http.server -b 127.0.0.1 8888') +
-                    example('Python 2', 'python -m SimpleHTTPServer -b 127.0.0.1 8888')
-                )
-            );
-        }
+        const example = (title, code) => {return `<p><b>${title}:</b><br>${code}</p>`};
+        this.container.innerHTML = '';
+
+        this.container.append(
+            this.createAlertMessage('danger',
+                '<b>Sorry, you must use a server!</b> For example:' +
+                example('Python 3', 'python3 -m http.server -b 127.0.0.1 8888') +
+                example('Python 2', 'python -m SimpleHTTPServer -b 127.0.0.1 8888')
+            )
+        );
         return false;
     }
 
@@ -214,7 +202,7 @@ class App {
                 }
             } catch(exeption) {}
             console.error('Error: ', error);
-            instance.logAppend(instance.createAlertMessage('danger', `<b>Error:</b> ${errorMessage}`));
+            instance.container.append(instance.createAlertMessage('danger', `<b>Error:</b> ${errorMessage}`));
             return Promise.reject(error);
         });
     }
@@ -287,7 +275,7 @@ class App {
             };
         }).catch(error => {
             if (!automatic) {
-                instance.logAppend(instance.createAlertMessage('danger',
+                instance.container.append(instance.createAlertMessage('danger',
                     '<b>Error:</b> Authentification with Spotify failed! Reload page and try again!'
                 ));
             }
@@ -298,22 +286,35 @@ class App {
         });
     }
 
-    showMenu(data) {
-        document.getElementById('pnlLoggedOut').style.display = 'none';
-
-        const userAvatar = (data.images[0]?.url ? '<img src="' + data.images[0]?.url + '" style="max-height: 32px; vertical-align: middle;"> ' : '');
-        document.getElementById('userName').innerHTML = `${userAvatar}<span>${data.userName}</span>`;
-
+    async showMenu(data) {
+        document.getElementById('pnlLoggedOut').remove();
         this.state.userId = data.userId;
+        this.appendAvatar(data.userName, data.images[0]?.url);
 
-        this.bindControls();
-        this.spotifyExport();
+        await this.spotifyExport();
+        this.appendDownload();
+        this.appendImport();
     }
 
-    bindControls() {
+    appendAvatar(username, image) {
+        const userAvatar = (image ? '<img src="' + image + '" style="max-height: 32px; vertical-align: middle;"> ' : '');
+
+        const avatar = document.createElement('div');
+        avatar.classList.add('avatar');
+        avatar.innerHTML = `${userAvatar}<span>${username}</span>`;
+        this.container.append(avatar);
+    }
+
+    appendDownload() {
         const instance = this;
 
-        document.getElementById('btnDownload').addEventListener('click', () => {
+        const button = document.createElement('button');
+        button.id = 'btnDownload';
+        button.classList.add('button');
+        button.innerText = 'Download';
+        this.container.append(button);
+
+        button.addEventListener('click', () => {
             const d = new Date();
             const dMonth = d.getMonth() + 1;
             let filename = instance.settings.filename;
@@ -326,13 +327,19 @@ class App {
             filename = filename.replaceAll('%u', instance.state.userId);
             instance.download(`${filename}.json`, JSON.stringify(instance.export, null, instance.settings.prettyPrint));
         });
+    }
 
-        document.getElementById('btnImport').addEventListener('click', () => {
-            document.getElementById('pnlAction').style.display = 'none';
-            document.getElementById('pnlImport').style.display = 'block';
-        });
+    appendImport() {
+        const instance = this;
 
-        document.getElementById('fileImport').addEventListener('change', (event) => {
+        const element = document.createElement('div');
+        element.id = 'pnlImport';
+        element.innerHTML = 
+            `<label class="button bg-red" for="fileImport">Import a previously exported file</label>` +
+            `<input type="file" id="fileImport" accept="application/json" />`;
+        this.container.append(element);
+
+        element.querySelector('input').addEventListener('change', (event) => {
             instance.spotifyImport(event);
         });
     }
@@ -390,49 +397,12 @@ class App {
         return null;
     }
 
-    refreshProgressStart() {
-        if (!this.refreshProgressInterval) {
-            this.refreshProgressInterval = setInterval(this.refreshProgress, 1000);
-
-            if (this.settings.development) {
-                this.refreshProgressInfo = this.createAlertMessage('info', '');
-                // this.refreshProgressInfo.appendChild(this.asciiSpinner('dots', 'Running...'));
-                this.refreshProgressInfo.appendChild(this.asciiSpinner('time', 'Running...'));
-                this.logAppend(this.refreshProgressInfo);
-            }
-        }
-    }
-
-    refreshProgressStop() {
-        if (this.refreshProgressInterval) {
-            clearInterval(this.refreshProgressInterval);
-        }
-        if (this.settings.development && this.refreshProgressInfo) {
-            this.refreshProgressInfo.remove();
-        }
-    }
-    refreshProgress() {}
-
     async spotifyExport() {
-        if (this.state.running) {
-            this.logAppend(this.createAlertMessage('warning',
-                '<b>Warning:</b> A process is curently running!'
-            ));
-            return;
-        }
-
-        this.state.running = true;
         this.export = {};
-        this.refreshProgressStart();
-
-        document.getElementById('pnlLoadingAccount').style.display = 'block';
-
-        const loadingTitle = document.getElementById('loadingTitle');
-        loadingTitle.innerHTML = 'Please wait. Loading your playlists and tracks ...';
 
         // @todo temporary progress log
         this.progressLogExport = this.createAlertMessage('info', '<b>Exporting Spotify</b>');
-        this.logAppend(this.progressLogExport);
+        this.container.append(this.progressLogExport);
 
         let playlists = await this.spotifyExportPlaylists();
         this.printPlaylists('Playlists found', playlists);
@@ -446,13 +416,7 @@ class App {
             this.export.saved = saved;
         }
 
-        // @todo old finished
-        loadingTitle.innerHTML = 'Finished loading, you now might want to export or import.';
-        document.getElementById('pnlAction').style.display = 'block';
-
         // this.progressLogExport.remove();
-        this.refreshProgressStop();
-        this.state.running = false;
     }
 
     async spotifyExportPlaylists() {
@@ -492,7 +456,7 @@ class App {
             playlists.forEach(playlist => {
                 data.push(`${playlist.name} (${playlist.id})`);
             });
-            this.logAppend(this.createAlertMessage('info',
+            this.container.append(this.createAlertMessage('info',
                 `<b>${title}:</b><ul><li>` + data.join('</li><li>') + '</li></ul>'
             ));
         }
@@ -578,7 +542,7 @@ class App {
                         count++;
                     } else {
                         console.log('Track is null', url, track);
-                        instance.logAppend(instance.createAlertMessage('warning',
+                        instance.container.append(instance.createAlertMessage('warning',
                             '<b>Warning:</b> Track is null! See console log.'
                         ));
                     }
@@ -604,33 +568,28 @@ class App {
     }
 
     async spotifyImport(event) {
-        if (this.state.running) {
-            this.logAppend(this.createAlertMessage('warning',
-                '<b>Warning:</b> A process is curently running!'
-            ));
-            return;
-        }
-
         // @todo We could support importing multiple files at one, but should we?!
         if (event.target.files.length > 1) {
-            this.logAppend(this.createAlertMessage('warning',
+            this.container.append(this.createAlertMessage('warning',
                 '<b>Warning:</b> Importing multiple files is not supported!'
             ));
             return;
         }
 
         if (event.target.files.length === 1) {
-            this.state.running = true;
+            // Hide download and import button, because data has changed
+            document.getElementById('btnDownload').remove();
+            document.getElementById('pnlImport').remove();
 
             const data = await this.readFileAsync(event.target.files[0]);
 
             // @todo temporary progress log
             this.progressLogImport = this.createAlertMessage('info', '<b>Importing to Spotify</b>');
-            this.logAppend(this.progressLogImport);
+            this.container.append(this.progressLogImport);
 
-            document.getElementById('pnlFile').style.display = 'none';
-            document.getElementById('pnlFileInfo').style.display = 'block';
-            document.getElementById('pnlUpload').style.display = 'block';
+            const spinner = this.asciiSpinner('time', `Filename: ${event.target.files[0].name}`);
+            spinner.children[0].remove();
+            this.progressLogImport.appendChild(spinner);
 
             if (this.settings.dryrun) {
                 const spinner = this.asciiSpinner('time', `ℹ️ Dry run: Nothing will be stored`);
@@ -657,21 +616,17 @@ class App {
             if (data.saved) {
                 await this.spotifyImportSaved(data.saved);
             }
-
-            this.state.running = false;
         }
     }
 
     readFileAsync(file) {
         return new Promise((resolve, reject) => {
             if (!file || file.type !== 'application/json') {
-                this.logAppend(this.createAlertMessage('danger',
+                this.container.append(this.createAlertMessage('danger',
                     '<b>Error:</b> File is not supported!'
                 ));
                 reject();
             }
-
-            document.getElementById('fileName').innerHTML = file.name; // @todo better view
 
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -829,7 +784,7 @@ class App {
         }
 
         const icon = (!this.settings.dryrun ? '✅' : 'ℹ️');
-        const spinner = this.asciiSpinner('time', `${icon} ${count} / ${tracks.length} tracks imported to playlist: ${playlist.name}`);
+        const spinner = this.asciiSpinner('time', `${icon} ${count} / ${tracks.length} tracks: ${playlist.name}`);
         spinner.children[0].remove();
         this.progressLogImport.appendChild(spinner);
     }
@@ -880,7 +835,7 @@ class App {
         }
 
         const icon = (!this.settings.dryrun ? '✅' : 'ℹ️');
-        const spinner = this.asciiSpinner('time', `${icon} ${count} / ${tracks.length} tracks imported to playlist saved`);
+        const spinner = this.asciiSpinner('time', `${icon} ${count} / ${tracks.length} tracks: Saved`);
         spinner.children[0].remove();
         this.progressLogImport.appendChild(spinner);
     }

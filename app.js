@@ -1,4 +1,3 @@
-// @todo if jquery loaded, {login, callback}.html need it too
 // @todo Check if old backups have track ids or uris for fallback
 class App {
     constructor() {
@@ -59,8 +58,8 @@ class App {
         // If fail let the user connect by self
         if (!authentificatedData) {
             const loginBtn = document.getElementById('login');
-            loginBtn.style.display = 'block';
             if (loginBtn) {
+                loginBtn.style.display = 'block';
                 loginBtn.addEventListener('click', (event) => {
                     instance.spotifyAuthorize(event);
                 });

@@ -100,7 +100,7 @@ class App {
 
             development: false,     // A switch for some switches
             devShortenSpotifyExportTracks: 0, // Shorten track data
-            dryrun: false,           // Do not make any changes
+            dryrun: false,          // Do not make any changes
             printPlaylists: false,  // Just print playlist on website
             excludeSaved: false,    // Exclude saved/my-music in export
             excludePlaylists: []    // Exclude playlist ids in export
@@ -436,8 +436,6 @@ class App {
 
     async spotifyExport() {
         this.export = {};
-
-        // @todo temporary progress log
         this.progressLogExport = this.log.createAlert('info', '<b>Exporting Spotify</b>');
 
         let playlists = await this.spotifyExportPlaylists();
@@ -600,7 +598,7 @@ class App {
     }
 
     async spotifyImport(event) {
-        // @todo We could support importing multiple files at one, but should we?!
+        // @todo We could support importing multiple files at once, but should we?!
         if (event.target.files.length > 1) {
             this.log.createAlert('warning', '<b>Warning:</b> Importing multiple files is not supported!');
             return;
@@ -691,7 +689,6 @@ class App {
             }
 
             if (!foundPlaylist) {
-                // @todo add playlist description
                 const newPlaylist = await this.createPlaylist(playlists[i]);
                 if (newPlaylist) {
                     foundPlaylist = newPlaylist;

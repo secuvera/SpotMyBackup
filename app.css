@@ -160,3 +160,9 @@ a:hover {
     background-color: #f8d7da;
     border-color: #f5c6cb;
 }
+
+.count-track {
+    display: inline-block;
+    min-width: 2.5em;
+    text-align: right;
+}

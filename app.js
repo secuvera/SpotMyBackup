@@ -492,7 +492,7 @@ class App {
             playlists[i].tracks = await this.spotifyExportTracks(playlists[i].href);
             delete playlists[i].href;
 
-            spinner.children[1].innerHTML = `✅ ${playlists[i].tracks.length} Tracks found in ${playlists[i].name}`;
+            spinner.children[1].innerHTML = `✅ <span class="count-track">${playlists[i].tracks.length}</span> Tracks: ${playlists[i].name}`;
             spinner.children[0].remove();
         }
         return playlists;
@@ -504,7 +504,7 @@ class App {
 
         const tracks = await this.spotifyExportTracks('/me/tracks');
 
-        spinner.children[1].innerHTML = `✅ ${tracks.length} Tracks found in saved`;
+        spinner.children[1].innerHTML = `✅ <span class="count-track">${tracks.length}</span> Tracks: Saved`;
         spinner.children[0].remove();
         return tracks;
     }

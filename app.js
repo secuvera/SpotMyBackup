@@ -271,7 +271,8 @@ class App {
             return {
                 userId: response.id.toLowerCase(),
                 userName: response.display_name ?? response.id,
-                images: response.images
+                images: response.images,
+                urlProfile: response.external_urls?.spotify,
             };
         }).catch(error => {
             if (!automatic) {
@@ -289,19 +290,23 @@ class App {
     async showMenu(data) {
         document.getElementById('pnlLoggedOut').remove();
         this.state.userId = data.userId;
-        this.appendAvatar(data.userName, data.images[0]?.url);
+        this.appendAvatar(data.userName, data.images[0]?.url, data.urlProfile);
 
         await this.spotifyExport();
         this.appendDownload();
         this.appendImport();
     }
 
-    appendAvatar(username, image) {
+    appendAvatar(username, image, url) {
         const userAvatar = (image ? '<img src="' + image + '" style="max-height: 32px; vertical-align: middle;"> ' : '');
+        let content = `${userAvatar}<span>${username}</span>`;
+        if (url && url !== '') {
+            content = `<a href="${url}" target="_blank">${content}</a>`;
+        }
 
         const avatar = document.createElement('div');
         avatar.classList.add('avatar');
-        avatar.innerHTML = `${userAvatar}<span>${username}</span>`;
+        avatar.innerHTML = content;
         this.container.append(avatar);
     }
 

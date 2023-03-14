@@ -11,6 +11,15 @@ body {
     background-size: 188px 178px;
 }
 
+a {
+    color: #121F59;
+    text-decoration: none;
+}
+a:hover {
+    color: #A2C852;
+}
+
+
 .header,
 .footer,
 .container {

@@ -1,6 +1,3 @@
-// @todo export playlist public?
-// @todo export playlist description
-// @todo Maybe a step by step is useful? export > download > 
 // @todo if jquery loaded, {login, callback}.html need it too
 // @todo Check if old backups have track ids or uris for fallback
 class App {
@@ -413,8 +410,12 @@ class App {
 
         let playlists = await this.spotifyExportPlaylists();
         this.printPlaylists('Playlists found', playlists);
-        playlists = this.filterPlaylists(playlists);
-        this.printPlaylists('Playlists filtered', playlists);
+
+        if (this.settings.excludePlaylists.length > 0) {
+            playlists = this.filterPlaylists(playlists);
+            this.printPlaylists('Playlists filtered', playlists);
+        }
+
         playlists = await this.spotifyExportPlaylistsTracks(playlists);
         this.export.playlists = playlists;
 
@@ -440,6 +441,9 @@ class App {
                     if (playlist.tracks && playlist.tracks.href) {
                         playlists.push({
                             name: playlist.name,
+                            description: playlist.description,
+                            public: playlist.public,
+                            collaborative: playlist.collaborative,
                             href: playlist.tracks.href,
                             id: playlist.id,
                             tracks: []
@@ -673,7 +677,7 @@ class App {
 
             if (!foundPlaylist) {
                 // @todo add playlist description
-                const newPlaylist = await this.createPlaylist(playlists[i].name, '');
+                const newPlaylist = await this.createPlaylist(playlists[i]);
                 if (newPlaylist) {
                     foundPlaylist = newPlaylist;
                 }
@@ -698,33 +702,30 @@ class App {
         spinner.children[0].remove();
     }
 
-    async createPlaylist(name, description) {
-        if (!description) {
-            description = '';
-        }
-
+    async createPlaylist(playlist) {
+        const collaborative = (playlist.collaborative ? true : false);
         const data = {
-            name: name,
-            public: false,
-            collaborative: false,
-            description: description
+            name: playlist.name,
+            description: (playlist.description ?? ''),
+            public: (playlist.public ? !collaborative : false),
+            collaborative: collaborative
         };
 
         if (!this.settings.dryrun) {
             const response = await this.postApi('/users/' + this.state.userId + '/playlists', data);
             if (response && response.id !== '') {
-                const spinner = this.asciiSpinner('time', `✅ Playlists created: ${name}`);
+                const spinner = this.asciiSpinner('time', `✅ Playlists created: ${playlist.name}`);
                 spinner.children[0].remove();
                 this.progressLogImport.appendChild(spinner);
 
                 return response;
             } else {
-                const spinner = this.asciiSpinner('time', `❌ Playlists not created: ${name}`);
+                const spinner = this.asciiSpinner('time', `❌ Playlists not created: ${playlist.name}`);
                 spinner.children[0].remove();
                 this.progressLogImport.appendChild(spinner);
             }
         } else {
-            const spinner = this.asciiSpinner('time', `ℹ️ Playlists created: ${name}`);
+            const spinner = this.asciiSpinner('time', `ℹ️ Playlists created: ${playlist.name}`);
             spinner.children[0].remove();
             this.progressLogImport.appendChild(spinner);
         }

@@ -289,6 +289,8 @@ class App {
 
     async showMenu(data) {
         document.getElementById('pnlLoggedOut').remove();
+        this.container.innerHTML = '';
+
         this.state.userId = data.userId;
         this.appendAvatar(data.userName, data.images[0]?.url, data.urlProfile);
 
@@ -799,7 +801,7 @@ class App {
         const spinner = this.asciiSpinner('time', `Importing saved...`);
         this.progressLogImport.appendChild(spinner);
 
-        const tracksToImport = this.comparePlaylistTracks({tracks: saved}, instance.export.saved, true);
+        const tracksToImport = this.comparePlaylistTracks({tracks: saved}, {tracks: instance.export.saved}, true);
         await this.spotifyImportSavedTracks(tracksToImport);
 
         spinner.children[1].innerHTML = `✅ Saved imported`;

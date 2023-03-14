@@ -1,4 +1,87 @@
 // @todo Check if old backups have track ids or uris for fallback
+class Log {
+    constructor(container) {
+        this.container = container;
+    }
+
+    createAlert(type, message) {
+        const div = document.createElement('div');
+        div.classList.add('alert', `alert-${type}`);
+        div.innerHTML = message;
+        this.container.appendChild(div);
+        return div;
+    }
+
+    message(type, message) {
+        switch(type) {
+            case 'success': type = '✅ '; break;
+            case 'error':   type = '❌ '; break;
+            case 'warning': type = '⚠️ '; break;
+            case 'info': type = 'ℹ️ '; break;
+            default: type = '';
+        }
+        return `${type}${message}`;
+    }
+
+    createMessage(type, message) {
+        const div = document.createElement('div');
+        div.innerHTML = this.message(type, message);
+        return div;
+    }
+
+    asciiSpinner(key, message) {
+        const instance = this;
+
+        // https://raw.githubusercontent.com/sindresorhus/cli-spinners/master/spinners.json
+        const spinners = {
+            dots: {
+                interval: 80,
+                frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+            },
+            time: {
+                interval: 100,
+                frames: ["🕐 ", "🕑 ", "🕒 ", "🕓 ", "🕔 ", "🕕 ", "🕖 ", "🕗 ", "🕘 ", "🕙 ", "🕚 ", "🕛 "]
+            }
+        };
+
+        const spinner = spinners[key];
+        if (spinner) {
+            const div = document.createElement('div');
+
+            const el = document.createElement('span');
+            el.style.display = 'inline-block';
+            el.style.width = '1.3em';
+            div.appendChild(el);
+
+            const span = document.createElement('span');
+            span.innerHTML = `${message}`;
+            div.appendChild(span);
+
+            ((spinner, el) => {
+                let i = 0;
+                setInterval(() => {
+                    el.innerHTML = spinner.frames[i];
+                    i = (i + 1) % spinner.frames.length;
+                }, spinner.interval);
+            })(spinner, el);
+
+            return {
+                container: div,
+                spinner: div.children[0],
+                message: (message) => {
+                    div.children[1].innerHTML = message;
+                },
+                messageOnly: (type, message) => {
+                    div.parentNode.replaceChild(
+                        instance.createMessage(type, message), div
+                    );
+                }
+            };
+        }
+        return null;
+    }
+}
+
 class App {
     constructor() {
         this.configurationFile = 'config.json';
@@ -29,6 +112,7 @@ class App {
         };
 
         this.container = document.getElementById('container');
+        this.log = new Log(this.container);
     }
 
     async initialize() {
@@ -70,13 +154,6 @@ class App {
         }
     }
 
-    createAlertMessage(type, message) {
-        const div = document.createElement('div');
-        div.classList.add('alert', `alert-${type}`);
-        div.innerHTML = message;
-        return div;
-    }
-
     isMicrosoftInternetExplorer() {
         return (navigator.userAgent.indexOf('MSIE') >= 0 || navigator.appVersion.indexOf('Trident/') >= 0);
     }
@@ -90,12 +167,10 @@ class App {
         const example = (title, code) => {return `<p><b>${title}:</b><br>${code}</p>`};
         this.container.innerHTML = '';
 
-        this.container.append(
-            this.createAlertMessage('danger',
-                '<b>Sorry, you must use a server!</b> For example:' +
-                example('Python 3', 'python3 -m http.server -b 127.0.0.1 8888') +
-                example('Python 2', 'python -m SimpleHTTPServer -b 127.0.0.1 8888')
-            )
+        this.log.createAlert('danger',
+            '<b>Sorry, you must use a server!</b> For example:' +
+            example('Python 3', 'python3 -m http.server -b 127.0.0.1 8888') +
+            example('Python 2', 'python -m SimpleHTTPServer -b 127.0.0.1 8888')
         );
         return false;
     }
@@ -107,7 +182,7 @@ class App {
             instance.settings = {...this.settings, ...data}
             return true;
         }).catch(error => {
-            const message = instance.createAlertMessage('danger', '<b>Warning:</b> Configuration file not loaded!<br>' + error);
+            const message = instance.log.createAlert('danger', '<b>Warning:</b> Configuration file not loaded!<br>' + error);
             const pnlLoggedOut = document.getElementById('pnlLoggedOut');
             if (pnlLoggedOut) {
                 pnlLoggedOut.parentNode.insertBefore(message, pnlLoggedOut);
@@ -132,8 +207,6 @@ class App {
                 console.error('Response: ', response);
                 return Promise.reject('Response error');
             }
-        }).then(data => {
-            return data;
         }).catch(error => {
             console.error('Error: ', error);
             return Promise.reject(error);
@@ -198,7 +271,7 @@ class App {
                 }
             } catch(exeption) {}
             console.error('Error: ', error);
-            instance.container.append(instance.createAlertMessage('danger', `<b>Error:</b> ${errorMessage}`));
+            instance.log.createAlert('danger', `<b>Error:</b> ${errorMessage}`);
             return Promise.reject(error);
         });
     }
@@ -272,9 +345,9 @@ class App {
             };
         }).catch(error => {
             if (!automatic) {
-                instance.container.append(instance.createAlertMessage('danger',
+                instance.log.createAlert('danger',
                     '<b>Error:</b> Authentification with Spotify failed! Reload page and try again!'
-                ));
+                );
             }
 
             sessionStorage.removeItem('accessToken');
@@ -361,51 +434,11 @@ class App {
         }
     }
 
-    asciiSpinner(key, message) {
-        // https://raw.githubusercontent.com/sindresorhus/cli-spinners/master/spinners.json
-        const spinners = {
-            dots: {
-                interval: 80,
-                frames: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-            },
-            time: {
-                interval: 100,
-                frames: ["🕐 ", "🕑 ", "🕒 ", "🕓 ", "🕔 ", "🕕 ", "🕖 ", "🕗 ", "🕘 ", "🕙 ", "🕚 ", "🕛 "]
-            }
-        };
-
-        const spinner = spinners[key];
-        if (spinner) {
-            const div = document.createElement('div');
-
-            const el = document.createElement('span');
-            el.style.display = 'inline-block';
-            el.style.width = '1.3em';
-            div.appendChild(el);
-
-            const span = document.createElement('span');
-            span.innerHTML = `${message}`;
-            div.appendChild(span);
-
-            ((spinner, el) => {
-                let i = 0;
-                setInterval(() => {
-                    el.innerHTML = spinner.frames[i];
-                    i = (i + 1) % spinner.frames.length;
-                }, spinner.interval);
-            })(spinner, el);
-
-            return div;
-        }
-        return null;
-    }
-
     async spotifyExport() {
         this.export = {};
 
         // @todo temporary progress log
-        this.progressLogExport = this.createAlertMessage('info', '<b>Exporting Spotify</b>');
-        this.container.append(this.progressLogExport);
+        this.progressLogExport = this.log.createAlert('info', '<b>Exporting Spotify</b>');
 
         let playlists = await this.spotifyExportPlaylists();
         this.printPlaylists('Playlists found', playlists);
@@ -422,13 +455,11 @@ class App {
             let saved = await this.spotifyExportSavedTracks();
             this.export.saved = saved;
         }
-
-        // this.progressLogExport.remove();
     }
 
     async spotifyExportPlaylists() {
-        const spinner = this.asciiSpinner('time', `Loading playlists...`);
-        this.progressLogExport.appendChild(spinner);
+        const spinner = this.log.asciiSpinner('time', `Loading playlists...`);
+        this.progressLogExport.appendChild(spinner.container);
         let count = 0;
 
         let playlists = [];
@@ -452,11 +483,10 @@ class App {
                 });
             }
             url = response.next ?? null;
-            spinner.children[1].innerHTML = `Loading playlists... ${count}`;
+            spinner.message(`Loading playlists... ${count}`);
         } while(url);
 
-        spinner.children[1].innerHTML = `✅ ${count} Playlists found`;
-        spinner.children[0].remove();
+        spinner.messageOnly('success', `${count} Playlists found`);
         return playlists;
     }
 
@@ -466,9 +496,7 @@ class App {
             playlists.forEach(playlist => {
                 data.push(`${playlist.name} (${playlist.id})`);
             });
-            this.container.append(this.createAlertMessage('info',
-                `<b>${title}:</b><ul><li>` + data.join('</li><li>') + '</li></ul>'
-            ));
+            this.log.createAlert('info', `<b>${title}:</b><ul><li>` + data.join('</li><li>') + '</li></ul>');
         }
     }
 
@@ -481,44 +509,40 @@ class App {
             }
         });
 
-        // @todo I am lazy, reconstruct log later
-        const spinner = this.asciiSpinner('time', `✅ ${filtered.length} Playlists filterd for export`);
-        spinner.children[0].remove();
-        this.progressLogExport.appendChild(spinner);
-
+        this.progressLogExport.appendChild(
+            this.log.createMessage('success', `${filtered.length} Playlists filtered for export`)
+        );
         return filtered;
     }
 
     async spotifyExportPlaylistsTracks(playlists) {
         for (let i = 0; i < playlists.length; i++) {
-            const spinner = this.asciiSpinner('time', `Loading ${playlists[i].name} tracks...`);
-            this.progressLogExport.appendChild(spinner);
+            const spinner = this.log.asciiSpinner('time', `Loading ${playlists[i].name} tracks...`);
+            this.progressLogExport.appendChild(spinner.container);
 
             playlists[i].tracks = await this.spotifyExportTracks(playlists[i].href);
             delete playlists[i].href;
 
-            spinner.children[1].innerHTML = `✅ <span class="count-track">${playlists[i].tracks.length}</span> Tracks: ${playlists[i].name}`;
-            spinner.children[0].remove();
+            spinner.messageOnly('success', `<span class="count-track">${playlists[i].tracks.length}</span> Tracks: ${playlists[i].name}`);
         }
         return playlists;
     }
 
     async spotifyExportSavedTracks() {
-        const spinner = this.asciiSpinner('time', `Loading saved tracks...`);
-        this.progressLogExport.appendChild(spinner);
+        const spinner = this.log.asciiSpinner('time', `Loading saved tracks...`);
+        this.progressLogExport.appendChild(spinner.container);
 
         const tracks = await this.spotifyExportTracks('/me/tracks');
 
-        spinner.children[1].innerHTML = `✅ <span class="count-track">${tracks.length}</span> Tracks: Saved`;
-        spinner.children[0].remove();
+        spinner.messageOnly('success', `<span class="count-track">${tracks.length}</span> Tracks: Saved`);
         return tracks;
     }
 
     async spotifyExportTracks(url) {
         const instance = this;
 
-        const spinner = this.asciiSpinner('time', `Loading tracks for current list...`);
-        this.progressLogExport.appendChild(spinner);
+        const spinner = this.log.asciiSpinner('time', `Loading tracks for current list...`);
+        this.progressLogExport.appendChild(spinner.container);
 
         let count = 0;
         let devCount = 0;
@@ -552,14 +576,12 @@ class App {
                         count++;
                     } else {
                         console.log('Track is null', url, track);
-                        instance.container.append(instance.createAlertMessage('warning',
-                            '<b>Warning:</b> Track is null! See console log.'
-                        ));
+                        instance.log.createAlert('warning', '<b>Warning:</b> Track is null! See console log.');
                     }
                 });
             }
             url = response.next ?? null;
-            spinner.children[1].innerHTML = `Loading tracks for current list... ${count}`;
+            spinner.message(`Loading tracks for current list... ${count}`)
 
             // On development you might not want to loading all tracks, because this could be huge!
             if (this.settings.development && this.settings.devShortenSpotifyExportTracks <= ++devCount) {
@@ -573,16 +595,14 @@ class App {
             });
         } while(url);
 
-        spinner.remove();
+        spinner.container.remove();
         return tracks;
     }
 
     async spotifyImport(event) {
         // @todo We could support importing multiple files at one, but should we?!
         if (event.target.files.length > 1) {
-            this.container.append(this.createAlertMessage('warning',
-                '<b>Warning:</b> Importing multiple files is not supported!'
-            ));
+            this.log.createAlert('warning', '<b>Warning:</b> Importing multiple files is not supported!');
             return;
         }
 
@@ -593,18 +613,16 @@ class App {
 
             const data = await this.readFileAsync(event.target.files[0]);
 
-            // @todo temporary progress log
-            this.progressLogImport = this.createAlertMessage('info', '<b>Importing to Spotify</b>');
-            this.container.append(this.progressLogImport);
+            this.progressLogImport = this.log.createAlert('info', '<b>Importing to Spotify</b>');
 
-            const spinner = this.asciiSpinner('time', `Filename: ${event.target.files[0].name}`);
-            spinner.children[0].remove();
-            this.progressLogImport.appendChild(spinner);
+            this.progressLogImport.appendChild(
+                this.log.createMessage('info', `Filename: ${event.target.files[0].name}`)
+            );
 
             if (this.settings.dryrun) {
-                const spinner = this.asciiSpinner('time', `ℹ️ Dry run: Nothing will be stored`);
-                spinner.children[0].remove();
-                this.progressLogImport.appendChild(spinner);
+                this.progressLogImport.appendChild(
+                    this.log.createMessage('info', `Dry run: Nothing will be stored`)
+                );
             }
 
             // @todo Check starred import
@@ -614,9 +632,9 @@ class App {
                     tracks: data.starred
                 });
 
-                const spinner = this.asciiSpinner('time', `⚠️ Starred is deprecated and will be imported as a playlist!`);
-                spinner.children[0].remove();
-                this.progressLogImport.appendChild(spinner);
+                this.progressLogImport.appendChild(
+                    this.log.createMessage('warning', `Starred is deprecated and will be imported as a playlist!`)
+                );
             }
 
             if (data.playlists) {
@@ -632,9 +650,7 @@ class App {
     readFileAsync(file) {
         return new Promise((resolve, reject) => {
             if (!file || file.type !== 'application/json') {
-                this.container.append(this.createAlertMessage('danger',
-                    '<b>Error:</b> File is not supported!'
-                ));
+                this.log.createAlert('danger', '<b>Error:</b> File is not supported!');
                 reject();
             }
 
@@ -651,8 +667,8 @@ class App {
 
     async spotifyImportPlaylists(playlists) {
         const instance = this;
-        const spinner = this.asciiSpinner('time', `Importing playlists...`);
-        this.progressLogImport.appendChild(spinner);
+        const spinner = this.log.asciiSpinner('time', `Importing playlists...`);
+        this.progressLogImport.appendChild(spinner.container);
         let count = 0;
 
         for (let i = 0; i < playlists.length; i++)  {
@@ -683,9 +699,9 @@ class App {
             }
 
             if (!foundPlaylist && !this.settings.dryrun) {
-                const spinner = this.asciiSpinner('time', `❌ Playlists not found or created in Spotify: ${playlists[i].name}`);
-                spinner.children[0].remove();
-                this.progressLogImport.appendChild(spinner);
+                this.progressLogImport.appendChild(
+                    this.log.createMessage('error', `Playlists not found or created in Spotify: ${playlists[i].name}`)
+                );
             }
 
             if (foundPlaylist) {
@@ -694,11 +710,10 @@ class App {
             }
 
             count++;
-            spinner.children[1].innerHTML = `Importing playlists... ${count}`;
+            spinner.message(`Importing playlists... ${count}`);
         }
 
-        spinner.children[1].innerHTML = `✅ ${count} Playlists imported`;
-        spinner.children[0].remove();
+        spinner.messageOnly('success', `${count} Playlists imported`)
     }
 
     async createPlaylist(playlist) {
@@ -713,20 +728,20 @@ class App {
         if (!this.settings.dryrun) {
             const response = await this.postApi('/users/' + this.state.userId + '/playlists', data);
             if (response && response.id !== '') {
-                const spinner = this.asciiSpinner('time', `✅ Playlists created: ${playlist.name}`);
-                spinner.children[0].remove();
-                this.progressLogImport.appendChild(spinner);
+                this.progressLogImport.appendChild(
+                    this.log.createMessage('success', `Playlists created: ${playlist.name}`)
+                );
 
                 return response;
             } else {
-                const spinner = this.asciiSpinner('time', `❌ Playlists not created: ${playlist.name}`);
-                spinner.children[0].remove();
-                this.progressLogImport.appendChild(spinner);
+                this.progressLogImport.appendChild(
+                    this.log.createMessage('error', `Playlists not created: ${playlist.name}`)
+                );
             }
         } else {
-            const spinner = this.asciiSpinner('time', `ℹ️ Playlists created: ${playlist.name}`);
-            spinner.children[0].remove();
-            this.progressLogImport.appendChild(spinner);
+            this.progressLogImport.appendChild(
+                this.log.createMessage('info', `Playlists created: ${playlist.name}`)
+            );
         }
         return null;
     }
@@ -774,10 +789,9 @@ class App {
                     count += chunkTracks.length;
                 } else {
                     console.error('Playlists not fully imported', playlist, chunkTracks);
-
-                    const spinner = this.asciiSpinner('time', `❌ Playlists not fully imported! See console error.`);
-                    spinner.children[0].remove();
-                    this.progressLogImport.appendChild(spinner);
+                    this.progressLogImport.appendChild(
+                        this.log.createMessage('error', `Playlists not fully imported! See console error.`)
+                    );
                 }
 
                 // @todo Better know the api limit
@@ -790,22 +804,21 @@ class App {
             }
         }
 
-        const icon = (!this.settings.dryrun ? '✅' : 'ℹ️');
-        const spinner = this.asciiSpinner('time', `${icon} ${count} / ${tracks.length} tracks: ${playlist.name}`);
-        spinner.children[0].remove();
-        this.progressLogImport.appendChild(spinner);
+        const type = (!this.settings.dryrun ? 'success' : 'info');
+        this.progressLogImport.appendChild(
+            this.log.createMessage(type, `${count} / ${tracks.length} tracks: ${playlist.name}`)
+        );
     }
 
     async spotifyImportSaved(saved) {
         const instance = this;
-        const spinner = this.asciiSpinner('time', `Importing saved...`);
-        this.progressLogImport.appendChild(spinner);
+        const spinner = this.log.asciiSpinner('time', `Importing saved...`);
+        this.progressLogImport.appendChild(spinner.container);
 
         const tracksToImport = this.comparePlaylistTracks({tracks: saved}, {tracks: instance.export.saved}, true);
         await this.spotifyImportSavedTracks(tracksToImport);
 
-        spinner.children[1].innerHTML = `✅ Saved imported`;
-        spinner.children[0].remove();
+        spinner.messageOnly('success', `Saved imported`);
     }
 
     async spotifyImportSavedTracks(tracks) {
@@ -825,10 +838,9 @@ class App {
                     count += chunkTracks.length;
                 } else {
                     console.error('Saved not fully imported', tracks, chunkTracks);
-
-                    const spinner = this.asciiSpinner('time', `❌ Saved not fully imported! See console error.`);
-                    spinner.children[0].remove();
-                    this.progressLogImport.appendChild(spinner);
+                    this.progressLogImport.appendChild(
+                        this.log.createMessage('error', `Saved not fully imported! See console error.`)
+                    );
                 }
 
                 // @todo Better know the api limit
@@ -841,10 +853,10 @@ class App {
             }
         }
 
-        const icon = (!this.settings.dryrun ? '✅' : 'ℹ️');
-        const spinner = this.asciiSpinner('time', `${icon} ${count} / ${tracks.length} tracks: Saved`);
-        spinner.children[0].remove();
-        this.progressLogImport.appendChild(spinner);
+        const type = (!this.settings.dryrun ? 'success' : 'info');
+        this.progressLogImport.appendChild(
+            this.log.createMessage(type, `${count} / ${tracks.length} Tracks: Saved`)
+        );
     }
 }
 

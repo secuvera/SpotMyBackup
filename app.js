@@ -82,6 +82,68 @@ class Log {
     }
 }
 
+class Download {
+    async urls(urls) {
+        const instance = this;
+        if (!urls) {
+            console.error('Urls to download missing!');
+            return false;
+        }
+        if (typeof urls === 'string') {
+            urls = [urls];
+        }
+
+        let result = null;
+        await urls.forEach(async url => {
+            const resultUrl = await instance.url(null, url);
+            result = (result !== null ? result && resultUrl : false);
+        });
+        return (result !== null ? result : false);
+    }
+
+    // download.url('file.txt', 'https://example.org');
+    async url(filename, url) {
+        if (!filename || filename === '') {
+            filename = url;
+            filename = filename.replace(/^.*[\\\/]/, '');
+            filename = filename.replace(/\?.*$/, '');
+        }
+
+        return fetch(url).then(result => {
+            if (!result.ok) {
+                throw Error(result.statusText);
+            }
+            return result.blob();
+        }).then(file => {
+            const tempUrl = URL.createObjectURL(file);
+            const result = this.runDownloadLinkClick(filename, tempUrl);
+            URL.revokeObjectURL(tempUrl);
+            return result;
+        }).catch(reason => {
+            console.error('Error downloading: ' + reason);
+            return false;
+        });
+    }
+
+    // download.contentText('file.txt', 'content');
+    contentText(filename, content) {
+        if (!filename || filename === '') {
+            filename = 'file.txt';
+        }
+        return this.runDownloadLinkClick(filename, 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
+    }
+
+    runDownloadLinkClick(filename, url) {
+        const element = document.createElement('a');
+        element.setAttribute('href', url);
+        element.setAttribute('download', filename);
+        element.click();
+        return true;
+    }
+}
+
+const download = new Download();
+
 class App {
     constructor() {
         this.configurationFile = 'config.json';
@@ -401,7 +463,9 @@ class App {
             filename = filename.replaceAll('%i', ((d.getMinutes() < 10) ? '0' : '') + d.getMinutes());
             filename = filename.replaceAll('%s', ((d.getSeconds() < 10) ? '0' : '') + d.getSeconds());
             filename = filename.replaceAll('%u', instance.state.userId);
-            instance.download(`${filename}.json`, JSON.stringify(instance.export, null, instance.settings.prettyPrint));
+            download.contentText(`${filename}.json`,
+                JSON.stringify(instance.export, null, instance.settings.prettyPrint)
+            );
         });
     }
 
@@ -418,20 +482,6 @@ class App {
         element.querySelector('input').addEventListener('change', (event) => {
             instance.spotifyImport(event);
         });
-    }
-
-    download(filename, content) {
-        const pom = document.createElement('a');
-        pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
-        pom.setAttribute('download', filename);
-
-        if (document.createEvent) {
-            const event = document.createEvent('MouseEvents');
-            event.initEvent('click', true, true);
-            pom.dispatchEvent(event);
-        } else {
-            pom.click();
-        }
     }
 
     async spotifyExport() {

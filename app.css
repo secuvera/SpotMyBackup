@@ -1,0 +1,168 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0 0 40px 0;
+    padding: 0;
+    font-family: 'Lato', sans-serif;
+    font-size: 16px;
+    background: url(gplaypattern.png) repeat;
+    background-size: 188px 178px;
+}
+
+a {
+    color: #121F59;
+    text-decoration: none;
+}
+a:hover {
+    color: #A2C852;
+}
+
+
+.header,
+.footer,
+.container {
+    margin: 0 auto;
+    padding: 12px;
+    width: 640px;
+    background-color: rgba(255,255,255,0.9);
+}
+
+.header {
+    color: #444;
+    margin-bottom: 10px;
+    border-bottom: solid 1px #eaeaea;
+}
+.header h1 {
+    margin: 0 0 20px 0;
+    font-size: 44px;
+    font-weight: bold;
+}
+.header h1 span {
+    font-weight: 300;
+    color: #555;
+}
+.header p {
+    margin: 0;
+    font-size: 24px;
+}
+
+.footer-wrapper {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
+.footer {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0;
+    border-top: solid 1px #eaeaea;
+}
+.footer a {
+    display: inline-block;
+    flex: 0 1 auto;
+
+    font-size: 14px;
+    padding: 5px 15px;
+    color: #121F59;
+    text-decoration: none;
+}
+.footer a:hover {
+    color: #A2C852;
+}
+
+.container {
+    border-bottom: solid 1px #eaeaea;
+}
+.container > *:last-child > *:last-child,
+.container > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+.button {
+    display: block;
+    margin: 0 auto;
+    padding: 10px 47px;
+    min-width: 130px;
+
+    color: #fff;
+    background-color: #2ebd59;
+    background-image: none;
+    border: none;
+    border-radius: 999em;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.5em;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    text-align: center;
+    white-space: nowrap;
+    white-space: normal;
+    cursor: pointer;
+}
+
+.bg-red {
+    background-color: #bd2e2e;
+}
+
+.avatar {
+    padding-bottom: 10px;
+    font-weight: bold;
+}
+
+#login,
+#btnDownload {
+    margin-bottom: 1em;
+}
+
+#pnlImport {
+    display: flex;
+}
+#pnlImport label {
+    display: inline-block;
+    cursor: pointer;
+}
+#pnlImport input {
+    display: none;
+}
+
+.badge-fork img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border: 0;
+}
+
+.alert {
+    position: relative;
+    padding: .75rem 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: .25rem;
+}
+.alert > *:last-child {
+    margin-bottom: 0;
+}
+.alert-info {
+    color: #0c5460;
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+}
+.alert-warning {
+    color: #856404;
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+}
+.alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.count-track {
+    display: inline-block;
+    min-width: 2.5em;
+    text-align: right;
+}

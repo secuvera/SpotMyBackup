@@ -1,7 +1,11 @@
-config = {
-"uri":"http://localhost:8888",
-"redirect_uri":"http://localhost:8888/login.html",
-"client_id":"[YOUR_TOKEN_HERE]",
-"slowdown_import": 100,
-"slowdown_export": 100
-};
+{
+  "clientId": "[YOUR_TOKEN_HERE]",
+  "uri": "http://127.0.0.1:8888",
+  "redirectUri": "http://127.0.0.1:8888/callback-spotify.html",
+
+  "filename": "spotify_%u_%Y-%m-%d_%H-%i-%s",
+  "prettyPrint": 0,
+  "extendedTrack": false,
+  "slowdownExport": 100,
+  "slowdownImport": 100
+}

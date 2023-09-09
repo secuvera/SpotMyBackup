@@ -80,7 +80,8 @@ Extended configuration, mostly because you want it pretty:
   "prettyPrint": 0,         // Json pretty-printing spacing level
   "extendedTrack": false,   // More data, like track name, artist names, album name
   "slowdownExport": 100,    // Slow down api calls for tracks in milliseconds
-  "slowdownImport": 100     // Slow down api calls for tracks in milliseconds
+  "slowdownImport": 100,    // Slow down api calls for tracks in milliseconds
+  "market": "US"            // Track Relinking for is_playable https://developer.spotify.com/documentation/web-api/concepts/track-relinking
 }
 ```
 
@@ -110,4 +111,65 @@ Check export with jq:
 sudo apt install jq
 
 jq '{file: input_filename, savedCount: .saved? | length, playlistCount: .playlists? | length, playlists: [.playlists?[] | {name: .name, tracks: .tracks | length}]}' ~/Downloads/spotify_*.json
+```
+
+## Filter not playable tracks
+
+Since availability is not always guaranteed in Spotify, I would like to see which songs can no longer be played.
+
+First you need to add `market` in your `config.json` file:
+
+```json
+{
+  "market": "US" // Track Relinking for is_playable https://developer.spotify.com/documentation/web-api/concepts/track-relinking
+}
+```
+
+Then create a new spotify backup. You will see a `is_playable` key in your track data.
+
+Download and install [JQ](https://jqlang.github.io/jq/).
+
+Execute this command:
+
+```bash
+jq '{
+    playlists: [.playlists[] | {
+        name: .name,
+        notPlayable: ([.tracks[] | select(.is_playable == false)] | length),
+        total: ([.tracks[]] | length),
+        tracks: ([.tracks[] | select(.is_playable == false) | {name: .name, artists: .artists}])
+    }],
+    saved: {
+        notPlayable: ([.saved[] | select(.is_playable == false)] | length),
+        total: ([.saved[]] | length),
+        tracks: ([.saved[] | select(.is_playable == false) | {name: .name, artists: .artists}])
+    }
+}' backup.json > not-playable.json
+```
+
+If you want full track data, remove both " | {name: .name, artists: .artists}".
+
+***Note: You can not import the "not-playable.json" file as a recovery!***
+
+Example Output:
+
+```json
+{
+  "playlists": [
+    {
+      "name": "Games",
+      "notPlayable": 1,
+      "total": 24,
+      "tracks": [
+        {
+          "name": "Exile Vilify (From the Game Portal 2)",
+          "artists": [
+            "The National"
+          ]
+        }
+      ]
+    },
+  ],
+  "saved": {...}
+}
 ```

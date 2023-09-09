@@ -159,6 +159,7 @@ class App {
             extendedTrack: false,   // Extend track data
             slowdownExport: 100,    // Slowdown api calls for tracks in milliseconds
             slowdownImport: 100,    // Slowdown api calls for tracks in milliseconds
+            market: '',             // Track Relinking for is_playable https://developer.spotify.com/documentation/web-api/concepts/track-relinking
 
             development: false,     // A switch for some switches
             devShortenSpotifyExportTracks: 0, // Shorten track data
@@ -280,6 +281,12 @@ class App {
 
         if (url.startsWith('/')) {
             url = 'https://api.spotify.com/v1' + url;
+        }
+
+        if (this.settings.market !== '') {
+            url = new URL(url);
+            url.searchParams.append('market', this.settings.market);
+            url = url.toString();
         }
 
         let options = {
@@ -618,6 +625,10 @@ class App {
                                     trackData.artists.push(artist.name);
                                 });
                             }
+                        }
+
+                        if (track.track.hasOwnProperty('is_playable')) {
+                            trackData.is_playable = track.track.is_playable;
                         }
 
                         tracks.push(trackData);

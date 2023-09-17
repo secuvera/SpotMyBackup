@@ -261,7 +261,7 @@ function login() {
     var set = {
       client_id: conf.client_id,
       redirect_uri: conf.redirect_uri,
-      scope: 'playlist-read playlist-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify',
+      scope: 'playlist-read playlist-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify ugc-image-upload',
       response_type: 'token',
       show_dialog: 'true'
     };
@@ -444,6 +444,30 @@ function addToPlaylist(playlistId, trackUri) {
     playlistQueue.push('https://api.spotify.com/v1/users/' + userId + '/playlists/' + playlistId + '/tracks?uris=' + encodeURIComponent(trackUri));
 }
 
+function uploadImage(playlistId, imageUrl, callback) {
+    fetch(imageUrl).then(res => res.blob()).then(blob => {
+        var reader = new FileReader();
+        reader.onload = function() {
+            $.ajax({
+                method: "PUT",
+                url: 'https://api.spotify.com/v1/playlists/' + playlistId + '/images',
+                data: this.result.slice("data:image/jpeg;base64,".length),
+                contentType: "image/jpeg",
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                success: function(response) {
+                    callback(true);
+                },
+                fail: function() {
+                    callback(false);
+                }
+            });
+        };
+        reader.readAsDataURL(blob);
+    });
+}
+
 function makeSurePlaylistExists(name, callback) {
     playlistStep += 1;
     if (name in collections.playlists) {
@@ -467,7 +491,11 @@ function makeSurePlaylistExists(name, callback) {
                 id: response.id,
                 tracks: []
             };
-            callback(true);
+            if(name in importColl.playlists && importColl.playlists[name].image) {
+                uploadImage(response.id, importColl.playlists[name].image, callback);
+            } else {
+                callback(true);
+            }
         },
         fail: function () {
             callback(false);
@@ -713,6 +741,7 @@ function loadPlaylistChunks(url, arr, callback) {
                             name: value.name,
                             href: value.tracks.href,
                             id: value.id,
+                            image: (typeof value.images === "object" && value.images.length > 0) ? value.images.sort((e1, e2) => e2.height - e1.height)[0].url : undefined,
                             tracks: []
                         });
                     }
